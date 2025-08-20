@@ -1,0 +1,249 @@
+#include "webserver.h"
+#include "cJSON.h"
+#include "esp_http_server.h"
+#include "esp_log.h"
+#include "nconfig.h"
+#include "wifi.h"
+#include "system.h"
+#include "esp_netif.h"
+#include "freertos/task.h"
+
+static const char *TAG = "webserver";
+
+static esp_err_t setting_get_handler(httpd_req_t *req)
+{
+    wifi_ap_record_t ap_info;
+    cJSON *root = cJSON_CreateObject();
+
+    char mode_buf[16];
+    if (nconfig_read(WIFI_MODE, mode_buf, sizeof(mode_buf)) == ESP_OK) {
+        cJSON_AddStringToObject(root, "mode", mode_buf);
+    } else {
+        cJSON_AddStringToObject(root, "mode", "sta"); // Default to sta
+    }
+
+    char net_type_buf[16];
+    if (nconfig_read(NETIF_TYPE, net_type_buf, sizeof(net_type_buf)) == ESP_OK) {
+        cJSON_AddStringToObject(root, "net_type", net_type_buf);
+    } else {
+        cJSON_AddStringToObject(root, "net_type", "dhcp"); // Default to dhcp
+    }
+
+    // Add baudrate to the response
+    char baud_buf[16];
+    if (nconfig_read(UART_BAUD_RATE, baud_buf, sizeof(baud_buf)) == ESP_OK) {
+        cJSON_AddStringToObject(root, "baudrate", baud_buf);
+    }
+
+    if (wifi_get_current_ap_info(&ap_info) == ESP_OK) {
+        cJSON_AddBoolToObject(root, "connected", true);
+        cJSON_AddStringToObject(root, "ssid", (const char *)ap_info.ssid);
+        cJSON_AddNumberToObject(root, "rssi", ap_info.rssi);
+
+        esp_netif_ip_info_t ip_info;
+        cJSON* ip_obj = cJSON_CreateObject();
+        if (wifi_get_current_ip_info(&ip_info) == ESP_OK) {
+            char ip_str[16];
+            esp_ip4addr_ntoa(&ip_info.ip, ip_str, sizeof(ip_str));
+            cJSON_AddStringToObject(ip_obj, "ip", ip_str);
+            esp_ip4addr_ntoa(&ip_info.gw, ip_str, sizeof(ip_str));
+            cJSON_AddStringToObject(ip_obj, "gateway", ip_str);
+            esp_ip4addr_ntoa(&ip_info.netmask, ip_str, sizeof(ip_str));
+            cJSON_AddStringToObject(ip_obj, "subnet", ip_str);
+        }
+
+        esp_netif_dns_info_t dns_info;
+        char dns_str[16];
+        if (wifi_get_dns_info(ESP_NETIF_DNS_MAIN, &dns_info) == ESP_OK) {
+            esp_ip4addr_ntoa(&dns_info.ip.u_addr.ip4, dns_str, sizeof(dns_str));
+            cJSON_AddStringToObject(ip_obj, "dns1", dns_str);
+        }
+        if (wifi_get_dns_info(ESP_NETIF_DNS_BACKUP, &dns_info) == ESP_OK) {
+            esp_ip4addr_ntoa(&dns_info.ip.u_addr.ip4, dns_str, sizeof(dns_str));
+            cJSON_AddStringToObject(ip_obj, "dns2", dns_str);
+        }
+        cJSON_AddItemToObject(root, "ip", ip_obj);
+
+    } else {
+        cJSON_AddBoolToObject(root, "connected", false);
+    }
+
+    const char *json_string = cJSON_Print(root);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_string, HTTPD_RESP_USE_STRLEN);
+    cJSON_Delete(root);
+    free((void*)json_string);
+
+    return ESP_OK;
+}
+
+static esp_err_t wifi_scan(httpd_req_t *req)
+{
+    wifi_ap_record_t *ap_records;
+    uint16_t count;
+
+    wifi_scan_aps(&ap_records, &count);
+
+    cJSON *root = cJSON_CreateArray();
+    for (int i = 0; i < count; i++)
+    {
+        cJSON *ap_obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(ap_obj, "ssid", (const char *)ap_records[i].ssid);
+        cJSON_AddNumberToObject(ap_obj, "rssi", ap_records[i].rssi);
+        cJSON_AddStringToObject(ap_obj, "authmode", auth_mode_str(ap_records[i].authmode));
+        cJSON_AddItemToArray(root, ap_obj);
+    }
+
+    if (count > 0)
+        free(ap_records);
+
+
+    const char *json_string = cJSON_Print(root);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_string, HTTPD_RESP_USE_STRLEN);
+    cJSON_Delete(root);
+    free((void*)json_string);
+
+    return ESP_OK;
+}
+
+static esp_err_t setting_post_handler(httpd_req_t *req)
+{
+    char buf[512];
+    int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
+
+    if (received <= 0) {
+        if (received == HTTPD_SOCK_ERR_TIMEOUT) httpd_resp_send_408(req);
+        return ESP_FAIL;
+    }
+    buf[received] = '\0';
+
+    cJSON *root = cJSON_Parse(buf);
+    if (root == NULL) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    cJSON *mode_item = cJSON_GetObjectItem(root, "mode");
+    cJSON *net_type_item = cJSON_GetObjectItem(root, "net_type");
+    cJSON *ssid_item = cJSON_GetObjectItem(root, "ssid");
+    cJSON *baud_item = cJSON_GetObjectItem(root, "baudrate");
+
+    if (mode_item && cJSON_IsString(mode_item)) {
+        const char* mode = mode_item->valuestring;
+        ESP_LOGI(TAG, "Received mode switch request: %s", mode);
+
+        if (strcmp(mode, "sta") == 0 || strcmp(mode, "apsta") == 0) {
+            if (strcmp(mode, "apsta") == 0) {
+                cJSON *ap_ssid_item = cJSON_GetObjectItem(root, "ap_ssid");
+                cJSON *ap_pass_item = cJSON_GetObjectItem(root, "ap_password");
+
+                if (ap_ssid_item && cJSON_IsString(ap_ssid_item)) {
+                    nconfig_write(AP_SSID, ap_ssid_item->valuestring);
+                } else {
+                    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "AP SSID required for APSTA mode");
+                    cJSON_Delete(root);
+                    return ESP_FAIL;
+                }
+
+                if (ap_pass_item && cJSON_IsString(ap_pass_item)) {
+                    nconfig_write(AP_PASSWORD, ap_pass_item->valuestring);
+                } else {
+                    nconfig_delete(AP_PASSWORD); // Open network
+                }
+            }
+
+            wifi_switch_mode(mode);
+            httpd_resp_sendstr(req, "{\"status\":\"mode_switch_initiated\"}");
+        } else {
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid mode");
+        }
+    } else if (net_type_item && cJSON_IsString(net_type_item)) {
+        const char* type = net_type_item->valuestring;
+        ESP_LOGI(TAG, "Received network config: %s", type);
+
+        if (strcmp(type, "static") == 0) {
+            cJSON *ip_item = cJSON_GetObjectItem(root, "ip");
+            cJSON *gw_item = cJSON_GetObjectItem(root, "gateway");
+            cJSON *sn_item = cJSON_GetObjectItem(root, "subnet");
+            cJSON *d1_item = cJSON_GetObjectItem(root, "dns1");
+            cJSON *d2_item = cJSON_GetObjectItem(root, "dns2");
+
+            const char* ip = cJSON_IsString(ip_item) ? ip_item->valuestring : NULL;
+            const char* gw = cJSON_IsString(gw_item) ? gw_item->valuestring : NULL;
+            const char* sn = cJSON_IsString(sn_item) ? sn_item->valuestring : NULL;
+            const char* d1 = cJSON_IsString(d1_item) ? d1_item->valuestring : NULL;
+            const char* d2 = cJSON_IsString(d2_item) ? d2_item->valuestring : NULL;
+
+            if (ip && gw && sn && d1) {
+                nconfig_write(NETIF_TYPE, "static");
+                nconfig_write(NETIF_IP, ip);
+                nconfig_write(NETIF_GATEWAY, gw);
+                nconfig_write(NETIF_SUBNET, sn);
+                nconfig_write(NETIF_DNS1, d1);
+                if (d2) nconfig_write(NETIF_DNS2, d2); else nconfig_delete(NETIF_DNS2);
+
+                wifi_use_static(ip, gw, sn, d1, d2);
+                httpd_resp_sendstr(req, "{\"status\":\"static_config_applied\"}");
+            } else {
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing static IP fields");
+            }
+        } else if (strcmp(type, "dhcp") == 0) {
+            nconfig_write(NETIF_TYPE, "dhcp");
+            wifi_use_dhcp();
+            httpd_resp_sendstr(req, "{\"status\":\"dhcp_config_applied\"}");
+        }
+    } else if (ssid_item && cJSON_IsString(ssid_item)) {
+        cJSON *pass_item = cJSON_GetObjectItem(root, "password");
+        if (cJSON_IsString(pass_item)) {
+            nconfig_write(WIFI_SSID, ssid_item->valuestring);
+            nconfig_write(WIFI_PASSWORD, pass_item->valuestring);
+            nconfig_write(NETIF_TYPE, "dhcp"); // Default to DHCP on new connection
+
+            httpd_resp_sendstr(req, "{\"status\":\"connection_initiated\"}");
+            wifi_disconnect();
+            vTaskDelay(pdMS_TO_TICKS(500));
+            wifi_connect();
+        } else {
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Password required");
+        }
+    } else if (baud_item && cJSON_IsString(baud_item)) {
+        const char* baudrate = baud_item->valuestring;
+        ESP_LOGI(TAG, "Received baudrate set request: %s", baudrate);
+        nconfig_write(UART_BAUD_RATE, baudrate);
+        change_baud_rate(strtol(baudrate, NULL, 10));
+        httpd_resp_sendstr(req, "{\"status\":\"baudrate_updated\"}");
+    } else {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid payload");
+    }
+
+    cJSON_Delete(root);
+    return ESP_OK;
+}
+
+void register_wifi_endpoint(httpd_handle_t server)
+{
+    httpd_uri_t status = {
+        .uri       = "/api/setting",
+        .method    = HTTP_GET,
+        .handler   = setting_get_handler,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(server, &status);
+
+    httpd_uri_t set = {
+        .uri       = "/api/setting",
+        .method    = HTTP_POST,
+        .handler   = setting_post_handler,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(server, &set);
+
+    httpd_uri_t scan = {
+        .uri       = "/api/wifi/scan",
+        .method    = HTTP_GET,
+        .handler   = wifi_scan,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(server, &scan);
+}

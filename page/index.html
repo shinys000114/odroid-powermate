@@ -1,0 +1,319 @@
+<!DOCTYPE HTML>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <title>ODROID Remote</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="module" src="/src/main.js"></script>
+</head>
+<body>
+
+<main class="container">
+    <header class="d-flex justify-content-between align-items-center mb-3 main-header">
+        <div class="order-md-1" style="flex: 1;">
+            <div class="d-flex align-items-center">
+                <span id="wifi-status" class="d-flex align-items-center text-muted">
+                  <i id="wifi-icon" class="bi bi-wifi-off me-2"></i>
+                  <span id="wifi-ssid-status">Disconnected</span>
+                </span>
+                <span id="websocket-status" class="d-flex align-items-center text-danger ms-3">
+                    <i id="websocket-icon" class="bi bi-x-circle-fill me-2"></i>
+                    <span id="websocket-status-text">Offline</span>
+                </span>
+            </div>
+            <div class="font-monospace mt-1 d-none d-md-inline">
+                <span id="voltage-display" class="text-primary">--.-- V</span> |
+                <span id="current-display" class="text-primary">--.-- A</span> |
+                <span id="power-display" class="text-primary">--.-- W</span>
+            </div>
+        </div>
+        <h1 class="text-primary text-center order-md-2 mx-auto">ODROID Power Mate</h1>
+        <div class="d-flex align-items-center justify-content-end order-md-3 header-controls" style="flex: 1;">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="theme-toggle">
+                <label class="form-check-label" for="theme-toggle"><i id="theme-icon" class="bi bi-moon-stars-fill"></i></label>
+            </div>
+            <button class="btn btn-outline-secondary ms-3" id="settings-button" data-bs-toggle="modal"
+                    data-bs-target="#settingsModal">
+                <i class="bi bi-gear"></i>
+            </button>
+        </div>
+    </header>
+
+    <ul class="nav nav-tabs" id="main-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="terminal-tab-btn" data-bs-toggle="tab"
+                    data-bs-target="#terminal-tab-pane" type="button" role="tab">Terminal
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="graph-tab-btn" data-bs-toggle="tab" data-bs-target="#graph-tab-pane"
+                    type="button" role="tab">Metrics
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+        <div class="tab-pane fade show active" id="terminal-tab-pane" role="tabpanel">
+            <div class="card border-top-0 rounded-0 rounded-bottom">
+                <div class="card-body">
+                    <div id="terminal-wrapper">
+                        <div id="terminal-container" class="border rounded">
+                            <div id="terminal"></div>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end mt-3">
+                        <button id="download-button" class="btn btn-primary me-2"><i class="bi bi-download me-1"></i>Download Log</button>
+                        <button id="clear-button" class="btn btn-secondary">Clear Terminal</button>
+                    </div>
+
+                    <!-- Moved from Control Tab -->
+                    <div class="mt-4">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center control-list-item">
+                                Main Power (12V)
+                                <div class="control-wrapper">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="main-power-toggle">
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center control-list-item">
+                                USB Power (5V)
+                                <div class="control-wrapper">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="usb-power-toggle">
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center control-list-item">
+                                Power Actions
+                                <div class="control-wrapper">
+                                    <button id="reset-button" class="btn btn-secondary">Reset</button>
+                                    <button id="power-action-button" class="btn btn-danger ms-2">Power</button>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                System Uptime
+                                <div class="control-wrapper">
+                                    <span id="uptime-display" class="font-monospace text-success">--:--:--</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="graph-tab-pane" role="tabpanel">
+            <div class="card border-top-0 rounded-0 rounded-bottom">
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <a href="/datalog.csv" class="btn btn-primary" download="datalog.csv"><i class="bi bi-download me-1"></i> Download CSV</a>
+                    </div>
+                    <h5 class="card-title text-center mb-3">Power Input</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <canvas id="powerChart" class="chart-canvas"></canvas>
+                        </div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <canvas id="voltageChart" class="chart-canvas"></canvas>
+                        </div>
+                        <div class="col-md-4">
+                            <canvas id="currentChart" class="chart-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer class="bg-body-tertiary text-center p-3">
+    <a href="https://www.hardkernel.com/" target="_blank" class="link-secondary">Hardkernel</a> |
+    <a href="https://wiki.odroid.com/start" target="_blank" class="link-secondary">Wiki</a>
+</footer>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="settingsModalLabel">Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="settingsTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="wifi-settings-tab" data-bs-toggle="tab"
+                                data-bs-target="#wifi-settings-pane" type="button" role="tab">Wi-Fi
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="network-settings-tab" data-bs-toggle="tab"
+                                data-bs-target="#network-settings-pane" type="button" role="tab">Network
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="ap-mode-settings-tab" data-bs-toggle="tab"
+                                data-bs-target="#ap-mode-settings-pane" type="button" role="tab">AP Mode
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="device-settings-tab" data-bs-toggle="tab"
+                                data-bs-target="#device-settings-pane" type="button" role="tab">Device
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content pt-3" id="settingsTabContent">
+                    <div class="tab-pane fade show active" id="wifi-settings-pane" role="tabpanel">
+                        <div class="alert alert-danger mt-3" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Warning:</strong> Disconnecting or connecting to a new network will restart the Wi-Fi service. You may need to reconnect to the device.
+                        </div>
+                        <div class="mb-3">
+                            <h6>Current Connection</h6>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded bg-body-secondary">
+                                <div>
+                                    <strong>Connected to: </strong><span id="current-wifi-ssid">MyHome_WiFi</span><br>
+                                    <small class="text-muted" id="current-wifi-ip">IP Address: -</small>
+                                </div>
+<!--                                <button class="btn btn-warning btn-sm" id="wifi-disconnect-button">Disconnect</button>-->
+                            </div>
+                        </div>
+                        <hr>
+                        <h6>Available Wi-Fi Networks</h6>
+                        <div class="table-responsive" style="max-height: 200px;">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                <tr>
+                                    <th scope="col">SSID</th>
+                                    <th scope="col">Signal</th>
+                                    <th scope="col">Security</th>
+                                </tr>
+                                </thead>
+                                <tbody id="wifi-ap-list">
+                                <tr><td colspan="3" class="text-center text-muted">Click 'Scan' to find networks.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-end pt-3 border-top mt-3">
+                            <button type="button" class="btn btn-primary me-2" id="scan-wifi-button">Scan</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="network-settings-pane" role="tabpanel">
+                        <div class="alert alert-danger mt-3" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Warning:</strong> Applying these settings will restart the Wi-Fi service. You may need to reconnect to the device.
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="static-ip-toggle">
+                            <label class="form-check-label" for="static-ip-toggle">Use Static IP</label>
+                        </div>
+                        <div id="static-ip-config" style="display: none;">
+                            <div class="mb-3">
+                                <label for="ip-address" class="form-label">IP Address</label>
+                                <input type="text" class="form-control" id="ip-address" placeholder="192.168.0.100">
+                            </div>
+                            <div class="mb-3">
+                                <label for="gateway" class="form-label">Gateway</label>
+                                <input type="text" class="form-control" id="gateway" placeholder="192.168.0.1">
+                            </div>
+                            <div class="mb-3">
+                                <label for="netmask" class="form-label">Netmask</label>
+                                <input type="text" class="form-control" id="netmask" placeholder="255.255.255.0">
+                            </div>
+                            <div class="mb-3">
+                                <label for="dns1" class="form-label">DNS Server</label>
+                                <input type="text" class="form-control" id="dns1" placeholder="8.8.8.8">
+                            </div>
+                            <div class="mb-3">
+                                <label for="dns2" class="form-label">Secondary DNS Server</label>
+                                <input type="text" class="form-control" id="dns2" placeholder="8.8.4.4">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end pt-3 border-top mt-3">
+                            <button type="button" class="btn btn-primary me-2" id="network-apply-button">Apply</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="ap-mode-settings-pane" role="tabpanel">
+                        <div class="alert alert-danger mt-3" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Warning:</strong> Applying these settings will restart the Wi-Fi service. You may need to reconnect to the device.
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="ap-mode-toggle">
+                            <label class="form-check-label" for="ap-mode-toggle">Enable AP+STA Mode</label>
+                        </div>
+                        <p class="text-muted small">Disable to use Station (STA) mode only. Enable to use Access Point + Station (APSTA) mode, allowing other devices to connect to this one.</p>
+                        <div id="ap-mode-config" style="display: none;">
+                            <div class="mb-3">
+                                <label for="ap-ssid" class="form-label">AP SSID</label>
+                                <input type="text" class="form-control" id="ap-ssid" placeholder="ODROID-Remote-AP">
+                            </div>
+                            <div class="mb-3">
+                                <label for="ap-password" class="form-label">AP Password</label>
+                                <input type="password" class="form-control" id="ap-password" placeholder="Leave blank for open network">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end pt-3 border-top mt-3">
+                            <button type="button" class="btn btn-primary me-2" id="ap-mode-apply-button">Apply</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="device-settings-pane" role="tabpanel">
+                        <div class="mb-3">
+                            <label for="baud-rate-select" class="form-label">UART Baud Rate</label>
+                            <select class="form-select" id="baud-rate-select">
+                                <option value="9600">9600</option>
+                                <option value="19200">19200</option>
+                                <option value="38400">38400</option>
+                                <option value="57600">57600</option>
+                                <option value="115200">115200</option>
+                                <option value="230400">230400</option>
+                                <option value="460800">460800</option>
+                                <option value="921600">921600</option>
+                                <option value="1500000" selected>1500000</option>
+                            </select>
+                        </div>
+                        <div class="d-flex justify-content-end pt-3 border-top mt-3">
+                            <button type="button" class="btn btn-primary me-2" id="baud-rate-apply-button">Apply</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wi-Fi Connection Modal -->
+<div class="modal fade" id="wifiModal" tabindex="-1" aria-labelledby="wifiModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="wifiModalLabel">Connect to Wi-Fi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="wifi-ssid-connect" class="form-label">SSID</label>
+                    <input type="text" class="form-control" id="wifi-ssid-connect" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="wifi-password-connect" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="wifi-password-connect">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="wifi-connect-button">Connect</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

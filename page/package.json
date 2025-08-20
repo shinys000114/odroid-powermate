@@ -1,0 +1,23 @@
+{
+  "name": "odroid-remote-page",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.0.4",
+    "vite-plugin-singlefile": "^2.0.1",
+    "vite-plugin-compression": "^0.5.1"
+  },
+  "dependencies": {
+    "@xterm/xterm": "^5.5.0",
+    "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.11.3",
+    "@xterm/addon-fit": "^0.9.0",
+    "chart.js": "^4.4.3"
+  }
+}

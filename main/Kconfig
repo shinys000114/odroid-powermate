@@ -1,0 +1,82 @@
+menu "ODROID-MONITOR"
+	menu "GPIO"
+		orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
+
+		config GPIO_INA226_SCL
+			int "INA226 SCL GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 0
+			help
+				GPIO number for I2C Master data line.
+
+		config GPIO_INA226_SDA
+			int "INA226 SDA GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 1
+			help
+				GPIO number for I2C Master data line.
+
+		config GPIO_INA226_INT
+			int "INA226 ALERT GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 10
+			help
+				GPIO number for I2C Master data line.
+
+		config GPIO_UART_TX
+			int "UART TX GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 6
+			help
+				GPIO number for UART data line.
+
+		config GPIO_UART_RX
+			int "UART RX GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 7
+			help
+				GPIO number for UART data line.
+
+		config GPIO_LED_STATUS
+			int "Status LED GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 8
+			help
+				GPIO number for LED.
+
+		config GPIO_LED_WIFI
+			int "Wi-Fi LED GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 9
+			help
+				GPIO number for LED.
+
+		config GPIO_SW_12V
+			int "12v Load Switch GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 4
+			help
+				GPIO number for Load switch.
+
+		config GPIO_SW_5V
+			int "5v Load Switch GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 5
+			help
+				GPIO number for Load switch.
+
+		config GPIO_TRIGGER_POWER
+			int "Trigger power GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 2
+			help
+				GPIO number for Trigger.
+
+		config GPIO_TRIGGER_RESET
+			int "Trigger reset GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 3
+			help
+				GPIO number for Trigger.
+	endmenu
+endmenu

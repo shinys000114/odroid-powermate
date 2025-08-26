@@ -8,15 +8,11 @@
 #include "freertos/semphr.h"
 #include "esp_timer.h"
 
-static const char *TAG = "CONTROL";
-
-// --- GPIO 핀 정의 ---
 #define GPIO_12V_SWITCH CONFIG_GPIO_SW_12V
 #define GPIO_5V_SWITCH  CONFIG_GPIO_SW_5V
 #define GPIO_POWER_TRIGGER CONFIG_GPIO_TRIGGER_POWER
 #define GPIO_RESET_TRIGGER CONFIG_GPIO_TRIGGER_RESET
 
-// --- 상태 변수, 뮤텍스 및 타이머 핸들 ---
 static bool status_12v_on = false;
 static bool status_5v_on = false;
 static SemaphoreHandle_t state_mutex;
@@ -30,14 +26,12 @@ static void trigger_off_callback(void* arg)
 {
     gpio_num_t gpio_pin = (int) arg;
     gpio_set_level(gpio_pin, 1); // 핀을 다시 HIGH로 복구
-    ESP_LOGI(TAG, "GPIO %d trigger finished.", gpio_pin);
 }
 
 static void update_gpio_switches()
 {
     gpio_set_level(GPIO_12V_SWITCH, status_12v_on);
     gpio_set_level(GPIO_5V_SWITCH, status_5v_on);
-    ESP_LOGI(TAG, "Switches updated: 12V=%s, 5V=%s", status_12v_on ? "ON" : "OFF", status_5v_on ? "ON" : "OFF");
 }
 
 static esp_err_t control_get_handler(httpd_req_t *req)
@@ -77,7 +71,6 @@ static esp_err_t control_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
     buf[ret] = '\0';
-    ESP_LOGI(TAG, "Received JSON: %s", buf);
 
     cJSON *root = cJSON_Parse(buf);
     if (root == NULL) {
@@ -107,7 +100,6 @@ static esp_err_t control_post_handler(httpd_req_t *req)
 
     cJSON *power_trigger = cJSON_GetObjectItem(root, "power_trigger");
     if (cJSON_IsTrue(power_trigger)) {
-        ESP_LOGI(TAG, "Triggering GPIO %d LOW for 3 seconds...", GPIO_POWER_TRIGGER);
         gpio_set_level(GPIO_POWER_TRIGGER, 0);
         esp_timer_stop(power_trigger_timer); // Stop timer if it's already running
         ESP_ERROR_CHECK(esp_timer_start_once(power_trigger_timer, 3000000)); // 3초
@@ -115,7 +107,6 @@ static esp_err_t control_post_handler(httpd_req_t *req)
 
     cJSON *reset_trigger = cJSON_GetObjectItem(root, "reset_trigger");
     if (cJSON_IsTrue(reset_trigger)) {
-        ESP_LOGI(TAG, "Triggering GPIO %d LOW for 3 seconds...", GPIO_RESET_TRIGGER);
         gpio_set_level(GPIO_RESET_TRIGGER, 0);
         esp_timer_stop(reset_trigger_timer); // Stop timer if it's already running
         ESP_ERROR_CHECK(esp_timer_start_once(reset_trigger_timer, 3000000)); // 3초
@@ -166,7 +157,6 @@ static void control_module_init(void)
     };
     ESP_ERROR_CHECK(esp_timer_create(&reset_timer_args, &reset_trigger_timer));
 
-    ESP_LOGI(TAG, "Control module initialized");
 }
 
 void register_control_endpoint(httpd_handle_t server)
@@ -188,5 +178,4 @@ void register_control_endpoint(httpd_handle_t server)
     };
     httpd_register_uri_handler(server, &post_uri);
 
-    ESP_LOGI(TAG, "Registered /api/control endpoints (GET, POST)");
 }

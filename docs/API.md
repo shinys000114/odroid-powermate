@@ -10,6 +10,8 @@ The WebSocket API provides a full-duplex communication channel for real-time dat
 
 **Endpoint**: `/ws`
 
+> **Note**: The server only accepts one WebSocket client at a time. Subsequent connection attempts will be rejected with a `403 Forbidden` error until the active client disconnects.
+
 ### Server-to-Client Messages
 
 The server pushes messages to the client, which can be either JSON objects or raw binary data. JSON messages always contain a `type` field to identify the payload.
@@ -90,28 +92,30 @@ Sets the state of power relays or triggers a power action. You can send one or m
 - **Request Fields**:
   - `load_12v_on` (boolean, optional): Sets the state of the 12V relay.
   - `load_5v_on` (boolean, optional): Sets the state of the 5V relay.
-  - `reset_trigger` (boolean, optional): If `true`, momentarily triggers the reset button. The action is triggered only on a `true` value.
-  - `power_trigger` (boolean, optional): If `true`, momentarily triggers the power button. The action is triggered only on a `true` value.
+  - `reset_trigger` (boolean, optional): If `true`, momentarily triggers the reset button (pulls the line low for 3 seconds). The action is triggered only on a `true` value.
+  - `power_trigger` (boolean, optional): If `true`, momentarily triggers the power button (pulls the line low for 3 seconds). The action is triggered only on a `true` value.
 
-- **Success Response**: `204 No Content`
+- **Success Response (200 OK)**: `{"status":"ok"}`
 
 ---
 
-### Endpoint: `/api/wifi`
+### Endpoint: `/api/setting`
 
-Manages all Wi-Fi and network-related configurations.
+Manages all Wi-Fi, network, and system-related configurations.
 
-#### `GET /api/wifi`
+#### `GET /api/setting`
 
-Retrieves the complete current network configuration.
+Retrieves the complete current network and system configuration.
 
 - **Success Response (200 OK)**
   ```json
   {
     "connected": true,
     "ssid": "MyHome_WiFi",
+    "rssi": -65,
     "mode": "apsta",
     "net_type": "static",
+    "baudrate": "115200",
     "ip": {
         "ip": "192.168.1.100",
         "gateway": "192.168.1.1",
@@ -124,16 +128,18 @@ Retrieves the complete current network configuration.
 - **Response Fields**:
   - `connected` (boolean): Current Wi-Fi connection state.
   - `ssid` (string): The SSID of the connected network.
+  - `rssi` (integer): The Received Signal Strength Indicator in dBm. Only present if connected.
   - `mode` (string): The current Wi-Fi mode (`"sta"` or `"apsta"`).
   - `net_type` (string): The network type (`"dhcp"` or `"static"`).
-  - `ip` (object): Contains IP configuration details. Present even if using DHCP (may show last-leased IP).
+  - `baudrate` (string): The current UART baud rate.
+  - `ip` (object): Contains IP configuration details. Present even if using DHCP (may show the last-leased IP).
     - `ip` (string): The device's IP address.
     - `gateway` (string): The network gateway address.
     - `subnet` (string): The network subnet mask.
     - `dns1` (string): The primary DNS server address.
     - `dns2` (string): The secondary DNS server address.
 
-#### `POST /api/wifi`
+#### `POST /api/setting`
 
 This is a multi-purpose endpoint. The server determines the action based on the fields provided in the request body.
 
@@ -156,7 +162,7 @@ This is a multi-purpose endpoint. The server determines the action based on the 
     { "net_type": "dhcp" }
     ```
   - **Request Body (for Static IP)**:
-    *Note: The `ip` object structure is consistent with the `GET /api/wifi` response.*
+    *Note: The `ip` object structure is consistent with the `GET /api/setting` response.*
     ```json
     {
       "net_type": "static",
@@ -169,7 +175,9 @@ This is a multi-purpose endpoint. The server determines the action based on the 
       }
     }
     ```
-  - **Success Response**: `204 No Content`
+  - **Success Response (200 OK)**:
+    - `{"status":"dhcp_config_applied"}`
+    - `{"status":"static_config_applied"}`
 
 - **Action: Configure Wi-Fi Mode (STA/APSTA)**
   - **Request Body (for STA mode)**:
@@ -185,7 +193,17 @@ This is a multi-purpose endpoint. The server determines the action based on the 
     }
     ```
     *Note: `ap_password` is optional. If omitted, the AP will be open.*
-  - **Success Response**: `204 No Content`
+  - **Success Response (200 OK)**: `{"status":"mode_switch_initiated"}`
+
+- **Action: Configure UART Baud Rate**
+  - **Request Body**:
+    ```json
+    { "baudrate": "115200" }
+    ```
+  - **Success Response (200 OK)**:
+    ```json
+    { "status": "baudrate_updated" }
+    ```
 
 ---
 
@@ -214,6 +232,27 @@ Scans for available Wi-Fi networks.
   - `ssid` (string): The network's Service Set Identifier.
   - `rssi` (integer): Signal strength in dBm.
   - `authmode` (string): The authentication mode (e.g., `"OPEN"`, `"WPA_PSK"`, `"WPA2_PSK"`).
+
+---
+
+### Endpoint: `/datalog.csv`
+
+Provides access to the historical sensor data log.
+
+#### `GET /datalog.csv`
+
+- **Description**: Downloads a CSV file containing the history of sensor data readings (voltage, current, power). The log is rotated when it reaches its maximum size (1MB).
+- **Success Response (200 OK)**: The body of the response is the CSV file content.
+- **Response Headers**:
+  - `Content-Type: text/csv`
+  - `Content-Disposition: attachment; filename="datalog.csv"`
+- **CSV Format**:
+  ```csv
+  timestamp,voltage,current,power
+  1672531200,12.01,1.52,18.25
+  1672531201,12.02,1.53,18.39
+  ...
+  ```
 
 ---
 

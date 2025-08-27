@@ -12,8 +12,7 @@
 #include "freertos/semphr.h"
 
 #define UART_NUM UART_NUM_1
-#define BUF_SIZE (4096)
-#define RD_BUF_SIZE (BUF_SIZE)
+#define BUF_SIZE (2048)
 #define UART_TX_PIN CONFIG_GPIO_UART_TX
 #define UART_RX_PIN CONFIG_GPIO_UART_RX
 
@@ -114,56 +113,112 @@ static void ws_sender_task(void *arg)
 
 static void uart_polling_task(void *arg)
 {
-    uint8_t* data_buf = (uint8_t*) malloc(RD_BUF_SIZE);
-    if (data_buf == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for UART polling buffer");
-        vTaskDelete(NULL);
-        return;
-    }
-
-    const TickType_t POLLING_INTERVAL = pdMS_TO_TICKS(10);
+    static uint8_t data_buf[BUF_SIZE];
+    const TickType_t MIN_POLLING_INTERVAL = pdMS_TO_TICKS(1);
+    const TickType_t MAX_POLLING_INTERVAL = pdMS_TO_TICKS(10);
+    const TickType_t READ_TIMEOUT = pdMS_TO_TICKS(5);
+    
+    TickType_t current_interval = MIN_POLLING_INTERVAL;
+    int consecutive_empty_polls = 0;
+    int cached_client_fd = -1;
+    TickType_t last_client_check = 0;
+    const TickType_t CLIENT_CHECK_INTERVAL = pdMS_TO_TICKS(100);
 
     while(1) {
-        size_t available_len;
-        uart_get_buffered_data_len(UART_NUM, &available_len);
+        TickType_t current_time = xTaskGetTickCount();
 
-        if (available_len > 0) {
+        if (current_time - last_client_check >= CLIENT_CHECK_INTERVAL) {
             xSemaphoreTake(client_fd_mutex, portMAX_DELAY);
-            int current_fd = client_fd;
+            cached_client_fd = client_fd;
             xSemaphoreGive(client_fd_mutex);
+            last_client_check = current_time;
+        }
 
-            if (current_fd > 0) {
-                // Read a chunk of data, up to the buffer size
-                size_t read_size = available_len > RD_BUF_SIZE ? RD_BUF_SIZE : available_len;
-                int bytes_read = uart_read_bytes(UART_NUM, data_buf, read_size, POLLING_INTERVAL);
+        size_t available_len;
+        esp_err_t err = uart_get_buffered_data_len(UART_NUM, &available_len);
+        
+        if (err != ESP_OK || available_len == 0) {
+            consecutive_empty_polls++;
+            if (consecutive_empty_polls > 5) {
+                current_interval = MAX_POLLING_INTERVAL;
+            } else if (consecutive_empty_polls > 2) {
+                current_interval = pdMS_TO_TICKS(5);
+            }
+            
+            if (cached_client_fd <= 0) {
+                vTaskDelay(pdMS_TO_TICKS(50));
+                continue;
+            }
+            
+            vTaskDelay(current_interval);
+            continue;
+        }
 
-                if (bytes_read > 0) {
-                    struct uart_to_ws_message msg;
-                    msg.data = malloc(bytes_read);
-                    if (msg.data) {
-                        memcpy(msg.data, data_buf, bytes_read);
-                        msg.len = bytes_read;
-                        // Use a small timeout to apply back-pressure if the queue is full
-                        if (xQueueSend(uart_to_ws_queue, &msg, pdMS_TO_TICKS(10)) != pdPASS) {
-                            ESP_LOGW(TAG, "ws sender queue full, dropping data");
-                            free(msg.data);
-                        }
-                    } else {
-                         ESP_LOGE(TAG, "Failed to allocate memory for uart ws msg");
+        consecutive_empty_polls = 0;
+        current_interval = MIN_POLLING_INTERVAL;
+
+        if (cached_client_fd <= 0) {
+            uart_flush_input(UART_NUM);
+            continue;
+        }
+
+        size_t total_processed = 0;
+        while (available_len > 0 && total_processed < BUF_SIZE) {
+            size_t read_size = (available_len > (BUF_SIZE - total_processed)) ? 
+                              (BUF_SIZE - total_processed) : available_len;
+            
+            int bytes_read = uart_read_bytes(UART_NUM, data_buf + total_processed, 
+                                           read_size, READ_TIMEOUT);
+            
+            if (bytes_read <= 0) {
+                break;
+            }
+            
+            total_processed += bytes_read;
+            available_len -= bytes_read;
+
+            uart_get_buffered_data_len(UART_NUM, &available_len);
+        }
+
+        if (total_processed > 0) {
+            const size_t CHUNK_SIZE = 1024;
+            size_t offset = 0;
+            
+            while (offset < total_processed) {
+                size_t chunk_size = (total_processed - offset > CHUNK_SIZE) ? 
+                                   CHUNK_SIZE : (total_processed - offset);
+                
+                struct uart_to_ws_message msg;
+                msg.data = malloc(chunk_size);
+                if (!msg.data) {
+                    ESP_LOGE(TAG, "Failed to allocate memory for uart ws msg");
+                    break;
+                }
+                
+                memcpy(msg.data, data_buf + offset, chunk_size);
+                msg.len = chunk_size;
+
+                if (xQueueSend(uart_to_ws_queue, &msg, 0) != pdPASS) {
+                    if (xQueueSend(uart_to_ws_queue, &msg, pdMS_TO_TICKS(5)) != pdPASS) {
+                        ESP_LOGW(TAG, "ws sender queue full, dropping %zu bytes", chunk_size);
+                        free(msg.data);
                     }
                 }
-            } else {
-                // No client connected, just discard the data
-                uart_flush_input(UART_NUM);
+                
+                offset += chunk_size;
             }
         }
-        vTaskDelay(POLLING_INTERVAL);
+
+        if (available_len > 0) {
+            vTaskDelay(MIN_POLLING_INTERVAL);
+        } else {
+            vTaskDelay(current_interval);
+        }
     }
-    free(data_buf);
+    
     vTaskDelete(NULL);
 }
 
-// 웹소켓 처리 핸들러
 static esp_err_t ws_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
         xSemaphoreTake(client_fd_mutex, portMAX_DELAY);

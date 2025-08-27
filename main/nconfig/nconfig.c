@@ -34,7 +34,7 @@ struct default_value const default_values[] = {
     {WIFI_SSID, "HK_BOB_24G"},
     {WIFI_PASSWORD, ""},
     {NETIF_TYPE, "dhcp"},
-    {NETIF_HOSTNAME, "odroid"},
+    {NETIF_HOSTNAME, "powermate"},
     {UART_BAUD_RATE, "1500000"},
     {NETIF_DNS1, "8.8.8.8"},
     {NETIF_DNS2, "8.8.4.4"},

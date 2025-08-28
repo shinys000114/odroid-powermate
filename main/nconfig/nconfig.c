@@ -9,7 +9,7 @@
 
 static nvs_handle_t handle;
 
-const static char *keys[NCONFIG_TYPE_MAX] = {
+const static char* keys[NCONFIG_TYPE_MAX] = {
     [WIFI_SSID] = "wifi_ssid",
     [WIFI_PASSWORD] = "wifi_pw",
     [WIFI_MODE] = "wifi_mode",
@@ -25,9 +25,10 @@ const static char *keys[NCONFIG_TYPE_MAX] = {
     [UART_BAUD_RATE] = "baudrate",
 };
 
-struct default_value {
+struct default_value
+{
     enum nconfig_type type;
-    const char *value;
+    const char* value;
 };
 
 struct default_value const default_values[] = {
@@ -48,13 +49,15 @@ esp_err_t init_nconfig()
     esp_err_t ret = nvs_open(NCONFIG_NVS_NAMESPACE, NVS_READWRITE, &handle);
     if (ret != ESP_OK) return ret;
 
-    for (int i = 0; i < sizeof(default_values) / sizeof(default_values[0]); ++i) {
+    for (int i = 0; i < sizeof(default_values) / sizeof(default_values[0]); ++i)
+    {
         // check key is not exist or value is null
         size_t len = 0;
         nconfig_get_str_len(default_values[i].type, &len);
         if (len <= 1) // nconfig_get_str_len return err or value is '\0'
         {
-            if (nconfig_write(default_values[i].type, default_values[i].value) != ESP_OK) // if nconfig write fail, system panic
+            if (nconfig_write(default_values[i].type, default_values[i].value) != ESP_OK)
+                // if nconfig write fail, system panic
                 return ESP_FAIL;
         }
     }
@@ -72,7 +75,7 @@ esp_err_t nconfig_delete(enum nconfig_type type)
     return nvs_erase_key(handle, keys[type]);
 }
 
-esp_err_t nconfig_get_str_len(enum nconfig_type type, size_t *len)
+esp_err_t nconfig_get_str_len(enum nconfig_type type, size_t* len)
 {
     return nvs_get_str(handle, keys[type], NULL, len);
 }

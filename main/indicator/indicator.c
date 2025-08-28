@@ -48,7 +48,7 @@ static const blink_step_t solid_blink[] = {
     {LED_BLINK_LOOP, 0, 0},
 };
 
-blink_step_t const *led_mode[] = {
+blink_step_t const* led_mode[] = {
     [BLINK_SLOW] = slow_blink,
     [BLINK_FAST] = fast_blink,
     [BLINK_DOUBLE] = double_blink,
@@ -65,7 +65,7 @@ void init_led(void)
     led_indicator_ledc_config_t ledc_config = {0};
     led_indicator_config_t config = {0};
 
-    ledc_config.is_active_level_high = true;
+    ledc_config.is_active_level_high = false;
     ledc_config.timer_inited = false;
     ledc_config.timer_num = LEDC_TIMER_0;
     ledc_config.gpio_num = LED_STATUS_GPIO;
@@ -78,7 +78,7 @@ void init_led(void)
 
     led_handle[LED_RED] = led_indicator_create(&config);
 
-    ledc_config.is_active_level_high = true;
+    ledc_config.is_active_level_high = false;
     ledc_config.timer_inited = false;
     ledc_config.timer_num = LEDC_TIMER_0;
     ledc_config.gpio_num = LED_WIFI_GPIO;

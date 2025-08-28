@@ -34,7 +34,6 @@ function onWsOpen() {
     if (term) {
         term.write('\x1b[32mConnected to WebSocket Server\x1b[0m\r\n');
     }
-    updateControlStatus();
 }
 
 /**
@@ -91,6 +90,9 @@ function initialize() {
     // This must be done AFTER the chart and terminal are initialized.
     const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     applyTheme(savedTheme);
+
+    // Fetch initial status on page load
+    updateControlStatus();
 
     // Establish the WebSocket connection with the defined handlers
     initWebSocket({

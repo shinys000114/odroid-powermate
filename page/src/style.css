@@ -1,15 +1,17 @@
 
 :root {
     --bs-body-font-family: 'Courier New', Courier, monospace;
-    --chart-power-color: #007bff;
-    --chart-voltage-color: #28a745;
-    --chart-current-color: #ffc107;
+    /* Chart Channel Colors */
+    --chart-usb-color: #0d6efd;  /* Bootstrap Blue */
+    --chart-main-color: #198754; /* Bootstrap Green */
+    --chart-vin-color: #dc3545;   /* Bootstrap Red */
 }
 
 [data-bs-theme="dark"] {
-    --chart-power-color: #569cd6;
-    --chart-voltage-color: #4ec9b0;
-    --chart-current-color: #dcdcaa;
+    /* Chart Channel Colors for Dark Theme */
+    --chart-usb-color: #569cd6;  /* A lighter blue for dark backgrounds */
+    --chart-main-color: #4ec9b0; /* A teal/cyan for dark backgrounds */
+    --chart-vin-color: #d16969;   /* A softer red for dark backgrounds */
 }
 
 body, .card, .modal-content, .list-group-item, .nav-tabs .nav-link {

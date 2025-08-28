@@ -40,12 +40,18 @@ export function applyTheme(themeName) {
  * @param {Object} data - The sensor data object from the WebSocket.
  */
 export function updateSensorUI(data) {
-    dom.voltageDisplay.textContent = `${data.voltage.toFixed(2)} V`;
-    dom.currentDisplay.textContent = `${data.current.toFixed(2)} A`;
-    dom.powerDisplay.textContent = `${data.power.toFixed(2)} W`;
+    // Display VIN channel data in the header as a primary overview
+    if (data.VIN) {
+        dom.voltageDisplay.textContent = `${data.VIN.voltage.toFixed(2)} V`;
+        dom.currentDisplay.textContent = `${data.VIN.current.toFixed(2)} A`;
+        dom.powerDisplay.textContent = `${data.VIN.power.toFixed(2)} W`;
+    }
+
     if (data.uptime_sec !== undefined) {
         dom.uptimeDisplay.textContent = formatUptime(data.uptime_sec);
     }
+
+    // Pass the entire multi-channel data object to the charts
     updateCharts(data);
 }
 

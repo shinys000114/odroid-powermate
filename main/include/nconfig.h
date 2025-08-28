@@ -35,7 +35,7 @@ enum nconfig_type
 esp_err_t nconfig_write(enum nconfig_type type, const char* data);
 
 // Check config is set and get config value length
-esp_err_t nconfig_get_str_len(enum nconfig_type type, size_t *len);
+esp_err_t nconfig_get_str_len(enum nconfig_type type, size_t* len);
 
 // Read config
 esp_err_t nconfig_read(enum nconfig_type type, char* data, size_t len);

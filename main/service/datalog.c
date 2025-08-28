@@ -7,9 +7,10 @@
 #include "esp_littlefs.h"
 #include "esp_log.h"
 
-static const char* TAG = "DATALOG";
+static const char* TAG = "datalog";
 static const char* LOG_FILE_PATH = "/littlefs/datalog.csv";
-#define MAX_LOG_SIZE (512 * 1024)
+
+#define MAX_LOG_SIZE (700 * 1024)
 
 void datalog_init(void)
 {
@@ -42,7 +43,7 @@ void datalog_init(void)
     }
 
     size_t total = 0, used = 0;
-    ret = esp_littlefs_info(NULL, &total, &used);
+    ret = esp_littlefs_info(conf.partition_label, &total, &used);
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
@@ -64,19 +65,20 @@ void datalog_init(void)
         }
         else
         {
-            // Add header
-            fprintf(f_write, "timestamp,voltage,current,power\n");
+            // Add header for 3 channels
+            fprintf(f_write, "timestamp,usb_voltage,usb_current,usb_power,main_voltage,main_current,main_power,vin_voltage,vin_current,vin_power\n");
             fclose(f_write);
         }
     }
     else
     {
+        // Here we could check if the header is correct, but for now we assume it is.
         ESP_LOGI(TAG, "Log file found.");
         fclose(f);
     }
 }
 
-void datalog_add(uint32_t timestamp, float voltage, float current, float power)
+void datalog_add(uint32_t timestamp, const channel_data_t* channel_data)
 {
     struct stat st;
     if (stat(LOG_FILE_PATH, &st) == 0)
@@ -139,7 +141,11 @@ void datalog_add(uint32_t timestamp, float voltage, float current, float power)
         return;
     }
 
-    fprintf(f, "%lu,%.3f,%.3f,%.3f\n", timestamp, voltage, current, power);
+    fprintf(f, "%lu", timestamp);
+    for (int i = 0; i < 3; ++i) {
+        fprintf(f, ",%.3f,%.3f,%.3f", channel_data[i].voltage, channel_data[i].current, channel_data[i].power);
+    }
+    fprintf(f, "\n");
     fclose(f);
 }
 

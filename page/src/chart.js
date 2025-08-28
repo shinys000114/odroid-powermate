@@ -17,6 +17,7 @@ export const charts = {
     current: null
 };
 
+const channelKeys = ['USB', 'MAIN', 'VIN'];
 const CHART_DATA_POINTS = 30; // Number of data points to display on the chart
 
 /**
@@ -53,10 +54,10 @@ function createChartOptions(title, minValue, maxValue) {
         },
         scales: {
             x: { ticks: { autoSkipPadding: 10, maxRotation: 0, minRotation: 0 } },
-            y: { 
+            y: {
                 min: minValue,
                 max: maxValue,
-                beginAtZero: false,
+                beginAtZero: true, // Start at zero for better comparison
                 ticks: {
                     stepSize: (maxValue - minValue) / 8
                 }
@@ -64,6 +65,23 @@ function createChartOptions(title, minValue, maxValue) {
         }
     };
 }
+
+/**
+ * Creates the dataset objects for a chart.
+ * @param {string} unit - The unit for the dataset label (e.g., 'W', 'V', 'A').
+ * @returns {Array<Object>} An array of Chart.js dataset objects.
+ */
+function createDatasets(unit) {
+    return channelKeys.map(channel => ({
+        label: `${channel} (${unit})`,
+        data: initialData(),
+        borderWidth: 2,
+        fill: false,
+        tension: 0.2,
+        pointRadius: 2
+    }));
+}
+
 
 /**
  * Initializes all three charts (Power, Voltage, Current).
@@ -79,15 +97,12 @@ export function initCharts() {
 
     // Create Power Chart
     if (powerChartCtx) {
-        const powerOptions = createChartOptions('Power', 0, 120);
+        const powerOptions = createChartOptions('Power', 0, 50); // Adjusted max value
         charts.power = new Chart(powerChartCtx, {
             type: 'line',
             data: {
                 labels: initialLabels(),
-                datasets: [
-                    { label: 'Power (W)', data: initialData(), borderWidth: 2, fill: false, tension: 0.2, pointRadius: 2 },
-                    { label: 'Avg Power', data: initialData(), borderWidth: 1.5, borderDash: [10, 5], fill: false, tension: 0, pointRadius: 0 }
-                ]
+                datasets: createDatasets('W')
             },
             options: powerOptions
         });
@@ -100,10 +115,7 @@ export function initCharts() {
             type: 'line',
             data: {
                 labels: initialLabels(),
-                datasets: [
-                    { label: 'Voltage (V)', data: initialData(), borderWidth: 2, fill: false, tension: 0.2, pointRadius: 2 },
-                    { label: 'Avg Voltage', data: initialData(), borderWidth: 1.5, borderDash: [10, 5], fill: false, tension: 0, pointRadius: 0 }
-                ]
+                datasets: createDatasets('V')
             },
             options: voltageOptions
         });
@@ -111,15 +123,12 @@ export function initCharts() {
 
     // Create Current Chart
     if (currentChartCtx) {
-        const currentOptions = createChartOptions('Current', 0, 7);
+        const currentOptions = createChartOptions('Current', 0, 5); // Adjusted max value
         charts.current = new Chart(currentChartCtx, {
             type: 'line',
             data: {
                 labels: initialLabels(),
-                datasets: [
-                    { label: 'Current (A)', data: initialData(), borderWidth: 2, fill: false, tension: 0.2, pointRadius: 2 },
-                    { label: 'Avg Current', data: initialData(), borderWidth: 1.5, borderDash: [10, 5], fill: false, tension: 0, pointRadius: 0 }
-                ]
+                datasets: createDatasets('A')
             },
             options: currentOptions
         });
@@ -135,11 +144,14 @@ export function applyChartsTheme(themeName) {
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
     const labelColor = isDark ? '#dee2e6' : '#212529';
 
-    const powerColor = getComputedStyle(htmlEl).getPropertyValue('--chart-power-color');
-    const voltageColor = getComputedStyle(htmlEl).getPropertyValue('--chart-voltage-color');
-    const currentColor = getComputedStyle(htmlEl).getPropertyValue('--chart-current-color');
+    // Define colors for each channel. These could be from CSS variables.
+    const channelColors = [
+        getComputedStyle(htmlEl).getPropertyValue('--chart-usb-color').trim() || '#0d6efd', // Blue
+        getComputedStyle(htmlEl).getPropertyValue('--chart-main-color').trim() || '#198754', // Green
+        getComputedStyle(htmlEl).getPropertyValue('--chart-vin-color').trim() || '#dc3545'  // Red
+    ];
 
-    const updateThemeForChart = (chart, color) => {
+    const updateThemeForChart = (chart) => {
         if (!chart) return;
         chart.options.scales.x.grid.color = gridColor;
         chart.options.scales.y.grid.color = gridColor;
@@ -147,15 +159,17 @@ export function applyChartsTheme(themeName) {
         chart.options.scales.y.ticks.color = labelColor;
         chart.options.plugins.legend.labels.color = labelColor;
         chart.options.plugins.title.color = labelColor;
-        chart.data.datasets[0].borderColor = color;
-        chart.data.datasets[1].borderColor = color;
-        chart.data.datasets[1].borderDash = [10, 5];
+
+        chart.data.datasets.forEach((dataset, index) => {
+            dataset.borderColor = channelColors[index];
+        });
+
         chart.update('none');
     };
 
-    updateThemeForChart(charts.power, powerColor);
-    updateThemeForChart(charts.voltage, voltageColor);
-    updateThemeForChart(charts.current, currentColor);
+    updateThemeForChart(charts.power);
+    updateThemeForChart(charts.voltage);
+    updateThemeForChart(charts.current);
 }
 
 /**
@@ -165,7 +179,7 @@ export function applyChartsTheme(themeName) {
 export function updateCharts(data) {
     const timeLabel = new Date(data.timestamp * 1000).toLocaleTimeString();
 
-    const updateSingleChart = (chart, value) => {
+    const updateSingleChart = (chart, metric) => {
         if (!chart) return;
 
         // Shift old data
@@ -174,18 +188,15 @@ export function updateCharts(data) {
 
         // Push new data
         chart.data.labels.push(timeLabel);
-        chart.data.datasets[0].data.push(value.toFixed(2));
 
-        // Calculate average
-        const dataArray = chart.data.datasets[0].data.filter(v => v !== null).map(v => parseFloat(v));
-        if (dataArray.length > 0) {
-            const sum = dataArray.reduce((acc, val) => acc + val, 0);
-            const avg = (sum / dataArray.length).toFixed(2);
-            chart.data.datasets[1].data.push(avg);
-
-        } else {
-            chart.data.datasets[1].data.push(null);
-        }
+        channelKeys.forEach((key, index) => {
+            if (data[key] && data[key][metric] !== undefined) {
+                const value = data[key][metric];
+                chart.data.datasets[index].data.push(value.toFixed(2));
+            } else {
+                chart.data.datasets[index].data.push(null); // Push null if data for a channel is missing
+            }
+        });
 
         // Only update the chart if the tab is visible
         if (graphTabPane.classList.contains('show')) {
@@ -193,9 +204,9 @@ export function updateCharts(data) {
         }
     };
 
-    updateSingleChart(charts.power, data.power);
-    updateSingleChart(charts.voltage, data.voltage);
-    updateSingleChart(charts.current, data.current);
+    updateSingleChart(charts.power, 'power');
+    updateSingleChart(charts.voltage, 'voltage');
+    updateSingleChart(charts.current, 'current');
 }
 
 /**

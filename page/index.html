@@ -71,7 +71,7 @@
                     <div class="mt-4">
                         <ul class="list-group">
                             <li class="list-group-item d-flex justify-content-between align-items-center control-list-item">
-                                Main Power (12V)
+                                Main Power
                                 <div class="control-wrapper">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" role="switch" id="main-power-toggle">
@@ -79,7 +79,7 @@
                                 </div>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center control-list-item">
-                                USB Power (5V)
+                                USB Power
                                 <div class="control-wrapper">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" role="switch" id="usb-power-toggle">
@@ -111,7 +111,7 @@
                     <div class="d-flex justify-content-end mb-3">
                         <a href="/datalog.csv" class="btn btn-primary" download="datalog.csv"><i class="bi bi-download me-1"></i> Download CSV</a>
                     </div>
-                    <h5 class="card-title text-center mb-3">Power Input</h5>
+                    <h5 class="card-title text-center mb-3">Power Metrics</h5>
                     <div class="row">
                         <div class="col-md-4 mb-3 mb-md-0">
                             <canvas id="powerChart" class="chart-canvas"></canvas>
@@ -251,7 +251,7 @@
                         <div id="ap-mode-config" style="display: none;">
                             <div class="mb-3">
                                 <label for="ap-ssid" class="form-label">AP SSID</label>
-                                <input type="text" class="form-control" id="ap-ssid" placeholder="ODROID-Remote-AP">
+                                <input type="text" class="form-control" id="ap-ssid" placeholder="odroid-pm">
                             </div>
                             <div class="mb-3">
                                 <label for="ap-password" class="form-label">AP Password</label>
@@ -277,6 +277,12 @@
                                 <option value="921600">921600</option>
                                 <option value="1500000" selected>1500000</option>
                             </select>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">System Reboot</label>
+                            <p class="text-muted small">This will restart the device. The reboot will occur after 3 seconds.</p>
+                            <button type="button" class="btn btn-danger" id="reboot-button">Reboot Now</button>
                         </div>
                         <div class="d-flex justify-content-end pt-3 border-top mt-3">
                             <button type="button" class="btn btn-primary me-2" id="baud-rate-apply-button">Apply</button>
@@ -314,6 +320,38 @@
         </div>
     </div>
 </div>
-
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const rebootButton = document.getElementById('reboot-button');
+        if (rebootButton) {
+            rebootButton.addEventListener('click', () => {
+                if (confirm('Are you sure you want to reboot the device?')) {
+                    fetch('/api/reboot', {
+                        method: 'POST',
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Reboot command sent:', data);
+                        const settingsModalEl = document.getElementById('settingsModal');
+                        const settingsModal = bootstrap.Modal.getInstance(settingsModalEl);
+                        if (settingsModal) {
+                            settingsModal.hide();
+                        }
+                        alert('Reboot command sent. The device will restart in 3 seconds.');
+                    })
+                    .catch(error => {
+                        console.error('Error sending reboot command:', error);
+                        alert('Failed to send reboot command.');
+                    });
+                }
+            });
+        }
+    });
+</script>
 </body>
 </html>

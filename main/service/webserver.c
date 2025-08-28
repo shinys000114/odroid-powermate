@@ -9,29 +9,30 @@
 #include "nconfig.h"
 #include "monitor.h"
 #include "datalog.h"
-
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-static const char *TAG = "WEBSERVER";
+static const char* TAG = "WEBSERVER";
 
-static esp_err_t index_handler(httpd_req_t *req) {
+static esp_err_t index_handler(httpd_req_t* req)
+{
     extern const unsigned char index_html_start[] asm("_binary_index_html_gz_start");
     extern const unsigned char index_html_end[] asm("_binary_index_html_gz_end");
     const size_t index_html_size = (index_html_end - index_html_start);
 
     httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, (const char *)index_html_start, index_html_size);
+    httpd_resp_send(req, (const char*)index_html_start, index_html_size);
 
     return ESP_OK;
 }
 
-static esp_err_t datalog_download_handler(httpd_req_t *req)
+static esp_err_t datalog_download_handler(httpd_req_t* req)
 {
-    const char *filepath = datalog_get_path();
-    FILE *f = fopen(filepath, "r");
-    if (f == NULL) {
+    const char* filepath = datalog_get_path();
+    FILE* f = fopen(filepath, "r");
+    if (f == NULL)
+    {
         ESP_LOGE(TAG, "Failed to open datalog file for reading");
         httpd_resp_send_404(req);
         return ESP_FAIL;
@@ -42,8 +43,10 @@ static esp_err_t datalog_download_handler(httpd_req_t *req)
 
     char buffer[1024];
     size_t bytes_read;
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), f)) > 0) {
-        if (httpd_resp_send_chunk(req, buffer, bytes_read) != ESP_OK) {
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), f)) > 0)
+    {
+        if (httpd_resp_send_chunk(req, buffer, bytes_read) != ESP_OK)
+        {
             ESP_LOGE(TAG, "File sending failed!");
             fclose(f);
             httpd_resp_send_chunk(req, NULL, 0);
@@ -57,31 +60,32 @@ static esp_err_t datalog_download_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// HTTP 서버 시작
-void start_webserver(void) {
+void start_webserver(void)
+{
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 1024 * 8;
     config.max_uri_handlers = 10;
 
-    if (httpd_start(&server, &config) != ESP_OK) {
-        return ;
+    if (httpd_start(&server, &config) != ESP_OK)
+    {
+        return;
     }
 
     // Index page
     httpd_uri_t index = {
-        .uri       = "/",
-        .method    = HTTP_GET,
-        .handler   = index_handler,
-        .user_ctx  = NULL
+        .uri = "/",
+        .method = HTTP_GET,
+        .handler = index_handler,
+        .user_ctx = NULL
     };
     httpd_register_uri_handler(server, &index);
 
     httpd_uri_t datalog_uri = {
-        .uri       = "/datalog.csv",
-        .method    = HTTP_GET,
-        .handler   = datalog_download_handler,
-        .user_ctx  = NULL
+        .uri = "/datalog.csv",
+        .method = HTTP_GET,
+        .handler = datalog_download_handler,
+        .user_ctx = NULL
     };
     httpd_register_uri_handler(server, &datalog_uri);
 

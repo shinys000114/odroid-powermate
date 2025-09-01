@@ -11,6 +11,7 @@
 #include "lwip/sys.h"
 #include "monitor.h"
 #include "nconfig.h"
+#include "system.h"
 
 static const char* TAG = "WEBSERVER";
 

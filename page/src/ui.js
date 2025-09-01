@@ -8,9 +8,9 @@
 import * as bootstrap from 'bootstrap';
 import * as dom from './dom.js';
 import * as api from './api.js';
-import { formatUptime, isMobile } from './utils.js';
-import { applyTerminalTheme, fitTerminal } from './terminal.js';
-import { applyChartsTheme, resizeCharts, updateCharts } from './chart.js';
+import {formatUptime, isMobile} from './utils.js';
+import {applyTerminalTheme, fitTerminal} from './terminal.js';
+import {applyChartsTheme, resizeCharts, updateCharts} from './chart.js';
 
 // Instance of the Bootstrap Modal for Wi-Fi connection
 let wifiModal;
@@ -115,7 +115,7 @@ export async function scanForWifi() {
                     wifiModal.show();
                     dom.wifiModalEl.addEventListener('shown.bs.modal', () => {
                         dom.wifiPasswordConnectInput.focus();
-                    }, { once: true });
+                    }, {once: true});
                 });
 
                 dom.wifiApList.appendChild(row);
@@ -184,10 +184,10 @@ export async function applyNetworkSettings() {
             return;
         }
 
-        payload = { net_type: 'static', ip, gateway, subnet, dns1 };
+        payload = {net_type: 'static', ip, gateway, subnet, dns1};
         if (dns2) payload.dns2 = dns2;
     } else {
-        payload = { net_type: 'dhcp' };
+        payload = {net_type: 'dhcp'};
     }
 
     try {
@@ -208,7 +208,7 @@ export async function applyNetworkSettings() {
  */
 export async function applyApModeSettings() {
     const mode = dom.apModeToggle.checked ? 'apsta' : 'sta';
-    let payload = { mode };
+    let payload = {mode};
 
     dom.apModeApplyButton.disabled = true;
     dom.apModeApplyButton.innerHTML = `<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Applying...`;

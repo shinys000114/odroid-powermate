@@ -8,8 +8,8 @@
 import * as dom from './dom.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
-import { clearTerminal, fitTerminal, downloadTerminalOutput } from './terminal.js';
-import { debounce, isMobile } from './utils.js';
+import {clearTerminal, downloadTerminalOutput, fitTerminal} from './terminal.js';
+import {debounce, isMobile} from './utils.js';
 
 // A flag to track if charts have been initialized
 let chartsInitialized = false;

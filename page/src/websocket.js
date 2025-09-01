@@ -18,7 +18,7 @@ const gateway = `ws://${window.location.host}/ws`;
  * @param {function} callbacks.onClose - Called when the connection is closed.
  * @param {function} callbacks.onMessage - Called when a message is received from the server.
  */
-export function initWebSocket({ onOpen, onClose, onMessage }) {
+export function initWebSocket({onOpen, onClose, onMessage}) {
     console.log(`Trying to open a WebSocket connection to ${gateway}...`);
     websocket = new WebSocket(gateway);
     // Set binary type to arraybuffer to handle raw binary data from the UART.

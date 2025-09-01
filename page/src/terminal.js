@@ -4,12 +4,12 @@
  * theme handling, and data communication with the WebSocket.
  */
 
-import { Terminal } from '@xterm/xterm';
+import {Terminal} from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import { FitAddon } from '@xterm/addon-fit';
-import { terminalContainer } from './dom.js';
-import { isMobile } from './utils.js';
-import { websocket, sendWebsocketMessage } from './websocket.js';
+import {FitAddon} from '@xterm/addon-fit';
+import {terminalContainer} from './dom.js';
+import {isMobile} from './utils.js';
+import {sendWebsocketMessage} from './websocket.js';
 
 // Exported terminal instance and addon for global access
 export let term;
@@ -41,7 +41,7 @@ export function setupTerminal() {
     }
 
     fitAddon = new FitAddon();
-    term = new Terminal({ convertEol: true, cursorBlink: true });
+    term = new Terminal({convertEol: true, cursorBlink: true});
     term.loadAddon(fitAddon);
     term.open(terminalContainer);
 
@@ -114,7 +114,7 @@ export function downloadTerminalOutput() {
     }
 
     // Create a blob from the text content
-    const blob = new Blob([fullText], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([fullText], {type: 'text/plain;charset=utf-8'});
 
     // Create a link element to trigger the download
     const link = document.createElement('a');

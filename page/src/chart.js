@@ -4,8 +4,8 @@
  * It handles initialization, theme updates, data updates, and resizing for the three separate charts.
  */
 
-import { Chart, registerables } from 'chart.js';
-import { powerChartCtx, voltageChartCtx, currentChartCtx, htmlEl, graphTabPane } from './dom.js';
+import {Chart, registerables} from 'chart.js';
+import {currentChartCtx, graphTabPane, htmlEl, powerChartCtx, voltageChartCtx} from './dom.js';
 
 // Register all necessary Chart.js components
 Chart.register(...registerables);
@@ -47,13 +47,13 @@ function createChartOptions(title, minValue, maxValue) {
     return {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
+        interaction: {mode: 'index', intersect: false},
         plugins: {
-            legend: { position: 'top' },
-            title: { display: true, text: title }
+            legend: {position: 'top'},
+            title: {display: true, text: title}
         },
         scales: {
-            x: { ticks: { autoSkipPadding: 10, maxRotation: 0, minRotation: 0 } },
+            x: {ticks: {autoSkipPadding: 10, maxRotation: 0, minRotation: 0}},
             y: {
                 min: minValue,
                 max: maxValue,

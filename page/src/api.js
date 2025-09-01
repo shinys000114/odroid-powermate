@@ -25,8 +25,8 @@ export async function fetchWifiScan() {
 export async function postWifiConnect(ssid, password) {
     const response = await fetch('/api/setting', { // Updated URL
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ssid, password }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ssid, password}),
     });
     if (!response.ok) {
         const errorText = await response.text();
@@ -44,7 +44,7 @@ export async function postWifiConnect(ssid, password) {
 export async function postNetworkSettings(payload) {
     const response = await fetch('/api/setting', { // Updated URL
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),
     });
     if (!response.ok) {
@@ -63,8 +63,8 @@ export async function postNetworkSettings(payload) {
 export async function postBaudRateSetting(baudrate) {
     const response = await fetch('/api/setting', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ baudrate }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({baudrate}),
     });
     if (!response.ok) {
         const errorText = await response.text();

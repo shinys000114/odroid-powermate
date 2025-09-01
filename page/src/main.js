@@ -11,17 +11,17 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './style.css';
 
 // --- Module Imports ---
-import { initWebSocket } from './websocket.js';
-import { setupTerminal, term } from './terminal.js';
+import {initWebSocket} from './websocket.js';
+import {setupTerminal, term} from './terminal.js';
 import {
     applyTheme,
     initUI,
     updateControlStatus,
     updateSensorUI,
-    updateWifiStatusUI,
-    updateWebsocketStatus
+    updateWebsocketStatus,
+    updateWifiStatusUI
 } from './ui.js';
-import { setupEventListeners } from './events.js';
+import {setupEventListeners} from './events.js';
 
 // --- WebSocket Event Handlers ---
 

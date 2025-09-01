@@ -46,7 +46,7 @@ function onWsClose() {
         term.write('\r\n\x1b[31mConnection closed. Reconnecting...\x1b[0m\r\n');
     }
     // Attempt to re-establish the connection after 2 seconds
-    setTimeout(initialize, 2000);
+    setTimeout(connect, 2000);
 }
 
 /**
@@ -76,8 +76,25 @@ function onWsMessage(event) {
 // --- Application Initialization ---
 
 /**
+ * Establishes the connection-related parts of the application.
+ * Fetches initial status and initializes WebSocket.
+ */
+function connect() {
+    // Fetch initial status on page load or reconnect
+    updateControlStatus();
+
+    // Establish the WebSocket connection with the defined handlers
+    initWebSocket({
+        onOpen: onWsOpen,
+        onClose: onWsClose,
+        onMessage: onWsMessage
+    });
+}
+
+/**
  * Initializes the entire application.
- * This function sets up the UI, theme, terminal, chart, WebSocket connection, and event listeners.
+ * This function sets up the UI, theme, terminal, and event listeners.
+ * It should only be called once when the DOM is loaded.
  */
 function initialize() {
     // Initialize basic UI components
@@ -87,22 +104,14 @@ function initialize() {
     setupTerminal();
 
     // Apply the saved theme or detect the user's preferred theme.
-    // This must be done AFTER the chart and terminal are initialized.
     const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     applyTheme(savedTheme);
 
-    // Fetch initial status on page load
-    updateControlStatus();
-
-    // Establish the WebSocket connection with the defined handlers
-    initWebSocket({
-        onOpen: onWsOpen,
-        onClose: onWsClose,
-        onMessage: onWsMessage
-    });
-
     // Attach all event listeners to the DOM elements
     setupEventListeners();
+
+    // Start the connection process
+    connect();
 }
 
 // --- Start Application ---

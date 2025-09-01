@@ -13,11 +13,19 @@ import { debounce, isMobile } from './utils.js';
 
 // A flag to track if charts have been initialized
 let chartsInitialized = false;
+let listenersAttached = false;
 
 /**
  * Sets up all event listeners for the application's interactive elements.
+ * This function is now idempotent and will only attach listeners once.
  */
 export function setupEventListeners() {
+    if (listenersAttached) {
+        console.log("Event listeners already attached. Skipping.");
+        return;
+    }
+    console.log("Attaching event listeners...");
+
     // --- Theme Toggle ---
     dom.themeToggle.addEventListener('change', () => {
         const newTheme = dom.themeToggle.checked ? 'dark' : 'light';
@@ -90,4 +98,7 @@ export function setupEventListeners() {
     // --- Window Resize Event ---
     // Debounced to avoid excessive calls during resizing.
     window.addEventListener('resize', debounce(ui.handleResize, 150));
+
+    listenersAttached = true;
+    console.log("Event listeners attached successfully.");
 }

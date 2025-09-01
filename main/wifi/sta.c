@@ -2,13 +2,13 @@
 // Created by shinys on 25. 9. 1.
 //
 
-#include "priv_wifi.h"
 #include <string.h>
-#include "esp_wifi.h"
 #include "esp_log.h"
-#include "nconfig.h"
 #include "esp_netif.h"
+#include "esp_wifi.h"
 #include "lwip/inet.h"
+#include "nconfig.h"
+#include "priv_wifi.h"
 #include "wifi.h"
 
 static const char* TAG = "STA";

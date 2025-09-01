@@ -4,17 +4,17 @@
 
 #include "sw.h"
 
-#include <inttypes.h>
-#include <stdio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <ina3221.h>
+#include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "pca9557.h"
-#include "driver/gpio.h"
 
 #define I2C_PORT 0
 
@@ -72,17 +72,11 @@ void init_sw()
     load_switch_5v_status = val != 0 ? true : false;
 
     const esp_timer_create_args_t power_timer_args = {
-        .callback = &trigger_off_callback,
-        .arg = (void*)GPIO_PWR,
-        .name = "power_trigger_off"
-    };
+        .callback = &trigger_off_callback, .arg = (void*)GPIO_PWR, .name = "power_trigger_off"};
     ESP_ERROR_CHECK(esp_timer_create(&power_timer_args, &power_trigger_timer));
 
     const esp_timer_create_args_t reset_timer_args = {
-        .callback = &trigger_off_callback,
-        .arg = (void*)GPIO_RST,
-        .name = "power_trigger_off"
-    };
+        .callback = &trigger_off_callback, .arg = (void*)GPIO_RST, .name = "power_trigger_off"};
     ESP_ERROR_CHECK(esp_timer_create(&reset_timer_args, &reset_trigger_timer));
 
     expander_mutex = xSemaphoreCreateMutex();
@@ -119,7 +113,8 @@ void trig_reset()
 void set_main_load_switch(bool on)
 {
     ESP_LOGI(TAG, "Set main load switch to %s", on ? "on" : "off");
-    if (load_switch_12v_status == on) return;
+    if (load_switch_12v_status == on)
+        return;
     if (xSemaphoreTake(expander_mutex, MUTEX_TIMEOUT) == pdFALSE)
     {
         ESP_LOGW(TAG, "Control error");
@@ -134,7 +129,8 @@ void set_main_load_switch(bool on)
 void set_usb_load_switch(bool on)
 {
     ESP_LOGI(TAG, "Set usb load switch to %s", on ? "on" : "off");
-    if (load_switch_5v_status == on) return;
+    if (load_switch_5v_status == on)
+        return;
     if (xSemaphoreTake(expander_mutex, MUTEX_TIMEOUT) == pdFALSE)
     {
         ESP_LOGW(TAG, "Control error");
@@ -146,12 +142,6 @@ void set_usb_load_switch(bool on)
     xSemaphoreGive(expander_mutex);
 }
 
-bool get_main_load_switch()
-{
-    return load_switch_12v_status;
-}
+bool get_main_load_switch() { return load_switch_12v_status; }
 
-bool get_usb_load_switch()
-{
-    return load_switch_5v_status;
-}
+bool get_usb_load_switch() { return load_switch_5v_status; }

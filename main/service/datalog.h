@@ -5,7 +5,8 @@
 
 #define NUM_CHANNELS 3
 
-typedef struct {
+typedef struct
+{
     float voltage;
     float current;
     float power;

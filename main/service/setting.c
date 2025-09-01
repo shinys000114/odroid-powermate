@@ -1,12 +1,12 @@
-#include "webserver.h"
 #include "cJSON.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
-#include "nconfig.h"
-#include "wifi.h"
-#include "system.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
+#include "nconfig.h"
+#include "system.h"
+#include "webserver.h"
+#include "wifi.h"
 
 static const char* TAG = "webserver";
 
@@ -126,7 +126,8 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
 
     if (received <= 0)
     {
-        if (received == HTTPD_SOCK_ERR_TIMEOUT) httpd_resp_send_408(req);
+        if (received == HTTPD_SOCK_ERR_TIMEOUT)
+            httpd_resp_send_408(req);
         return ESP_FAIL;
     }
     buf[received] = '\0';
@@ -210,8 +211,10 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
                 nconfig_write(NETIF_GATEWAY, gw);
                 nconfig_write(NETIF_SUBNET, sn);
                 nconfig_write(NETIF_DNS1, d1);
-                if (d2) nconfig_write(NETIF_DNS2, d2);
-                else nconfig_delete(NETIF_DNS2);
+                if (d2)
+                    nconfig_write(NETIF_DNS2, d2);
+                else
+                    nconfig_delete(NETIF_DNS2);
 
                 wifi_use_static(ip, gw, sn, d1, d2);
                 httpd_resp_sendstr(req, "{\"status\":\"static_config_applied\"}");
@@ -261,27 +264,12 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
 
 void register_wifi_endpoint(httpd_handle_t server)
 {
-    httpd_uri_t status = {
-        .uri = "/api/setting",
-        .method = HTTP_GET,
-        .handler = setting_get_handler,
-        .user_ctx = NULL
-    };
+    httpd_uri_t status = {.uri = "/api/setting", .method = HTTP_GET, .handler = setting_get_handler, .user_ctx = NULL};
     httpd_register_uri_handler(server, &status);
 
-    httpd_uri_t set = {
-        .uri = "/api/setting",
-        .method = HTTP_POST,
-        .handler = setting_post_handler,
-        .user_ctx = NULL
-    };
+    httpd_uri_t set = {.uri = "/api/setting", .method = HTTP_POST, .handler = setting_post_handler, .user_ctx = NULL};
     httpd_register_uri_handler(server, &set);
 
-    httpd_uri_t scan = {
-        .uri = "/api/wifi/scan",
-        .method = HTTP_GET,
-        .handler = wifi_scan,
-        .user_ctx = NULL
-    };
+    httpd_uri_t scan = {.uri = "/api/wifi/scan", .method = HTTP_GET, .handler = wifi_scan, .user_ctx = NULL};
     httpd_register_uri_handler(server, &scan);
 }

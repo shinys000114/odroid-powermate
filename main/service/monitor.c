@@ -5,47 +5,39 @@
 
 #include "monitor.h"
 #include <time.h>
-#include "freertos/FreeRTOS.h"
-#include "esp_log.h"
-#include "esp_timer.h"
 #include "cJSON.h"
+#include "datalog.h"
+#include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_timer.h"
 #include "esp_wifi_types_generic.h"
+#include "freertos/FreeRTOS.h"
+#include "ina3221.h"
 #include "webserver.h"
 #include "wifi.h"
-#include "datalog.h"
-#include "ina3221.h"
 
 #define PM_SDA CONFIG_I2C_GPIO_SDA
 #define PM_SCL CONFIG_I2C_GPIO_SCL
 
-const char* channel_names[] = {
-    "USB",
-    "MAIN",
-    "VIN"
-};
+const char* channel_names[] = {"USB", "MAIN", "VIN"};
 
-ina3221_t ina3221 =
-{
+ina3221_t ina3221 = {
     /* shunt values are 100 mOhm for each channel */
-    .shunt = {
-        10,
-        10,
-        10
-    },
+    .shunt = {10, 10, 10},
     .mask.mask_register = INA3221_DEFAULT_MASK,
     .i2c_dev = {0},
-    .config = {
-        .mode = true, // mode selection
-        .esht = true, // shunt enable
-        .ebus = true, // bus enable
-        .ch1 = true, // channel 1 enable
-        .ch2 = true, // channel 2 enable
-        .ch3 = true, // channel 3 enable
-        .avg = INA3221_AVG_64, // 64 samples average
-        .vbus = INA3221_CT_2116, // 2ms by channel (bus)
-        .vsht = INA3221_CT_2116, // 2ms by channel (shunt)
-    },
+    .config =
+        {
+            .mode = true, // mode selection
+            .esht = true, // shunt enable
+            .ebus = true, // bus enable
+            .ch1 = true, // channel 1 enable
+            .ch2 = true, // channel 2 enable
+            .ch3 = true, // channel 3 enable
+            .avg = INA3221_AVG_64, // 64 samples average
+            .vbus = INA3221_CT_2116, // 2ms by channel (bus)
+            .vsht = INA3221_CT_2116, // 2ms by channel (shunt)
+        },
 };
 
 // Timer callback function to read sensor data

@@ -49,12 +49,8 @@ static const blink_step_t solid_blink[] = {
 };
 
 blink_step_t const* led_mode[] = {
-    [BLINK_SLOW] = slow_blink,
-    [BLINK_FAST] = fast_blink,
-    [BLINK_DOUBLE] = double_blink,
-    [BLINK_TRIPLE] = triple_blink,
-    [BLINK_SOLID] = solid_blink,
-    [BLINK_MAX] = NULL,
+    [BLINK_SLOW] = slow_blink,     [BLINK_FAST] = fast_blink,   [BLINK_DOUBLE] = double_blink,
+    [BLINK_TRIPLE] = triple_blink, [BLINK_SOLID] = solid_blink, [BLINK_MAX] = NULL,
 };
 
 led_indicator_handle_t led_handle[LED_MAX] = {0};

@@ -14,4 +14,4 @@ void set_usb_load_switch(bool on);
 bool get_main_load_switch();
 bool get_usb_load_switch();
 
-#endif //ODROID_POWER_MATE_SW_H
+#endif // ODROID_POWER_MATE_SW_H

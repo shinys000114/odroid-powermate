@@ -26,4 +26,4 @@ void init_led(void);
 void led_set(enum blink_led led, enum blink_type type);
 void led_off(enum blink_led led);
 
-#endif //LED_H
+#endif // LED_H

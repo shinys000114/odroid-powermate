@@ -4,24 +4,15 @@
 
 #include "nconfig.h"
 
-#include "nvs_flash.h"
 #include "esp_err.h"
+#include "nvs_flash.h"
 
 static nvs_handle_t handle;
 
 const static char* keys[NCONFIG_TYPE_MAX] = {
-    [WIFI_SSID] = "wifi_ssid",
-    [WIFI_PASSWORD] = "wifi_pw",
-    [WIFI_MODE] = "wifi_mode",
-    [AP_SSID] = "ap_ssid",
-    [AP_PASSWORD] = "ap_pw",
-    [NETIF_HOSTNAME] = "hostname",
-    [NETIF_IP] = "ip",
-    [NETIF_GATEWAY] = "gw",
-    [NETIF_SUBNET] = "sn",
-    [NETIF_DNS1] = "dns1",
-    [NETIF_DNS2] = "dns2",
-    [NETIF_TYPE] = "dhcp",
+    [WIFI_SSID] = "wifi_ssid",     [WIFI_PASSWORD] = "wifi_pw",   [WIFI_MODE] = "wifi_mode", [AP_SSID] = "ap_ssid",
+    [AP_PASSWORD] = "ap_pw",       [NETIF_HOSTNAME] = "hostname", [NETIF_IP] = "ip",         [NETIF_GATEWAY] = "gw",
+    [NETIF_SUBNET] = "sn",         [NETIF_DNS1] = "dns1",         [NETIF_DNS2] = "dns2",     [NETIF_TYPE] = "dhcp",
     [UART_BAUD_RATE] = "baudrate",
 };
 
@@ -47,7 +38,8 @@ struct default_value const default_values[] = {
 esp_err_t init_nconfig()
 {
     esp_err_t ret = nvs_open(NCONFIG_NVS_NAMESPACE, NVS_READWRITE, &handle);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     for (int i = 0; i < sizeof(default_values) / sizeof(default_values[0]); ++i)
     {
@@ -70,15 +62,9 @@ bool nconfig_value_is_not_set(enum nconfig_type type)
     return (err != ESP_OK || len <= 1);
 }
 
-esp_err_t nconfig_write(enum nconfig_type type, const char* data)
-{
-    return nvs_set_str(handle, keys[type], data);
-}
+esp_err_t nconfig_write(enum nconfig_type type, const char* data) { return nvs_set_str(handle, keys[type], data); }
 
-esp_err_t nconfig_delete(enum nconfig_type type)
-{
-    return nvs_erase_key(handle, keys[type]);
-}
+esp_err_t nconfig_delete(enum nconfig_type type) { return nvs_erase_key(handle, keys[type]); }
 
 esp_err_t nconfig_get_str_len(enum nconfig_type type, size_t* len)
 {

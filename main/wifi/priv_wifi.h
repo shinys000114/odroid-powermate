@@ -9,4 +9,4 @@ void wifi_init_sta(void);
 void wifi_init_ap(void);
 void initialize_sntp(void);
 
-#endif //ODROID_POWER_MATE_PRIV_WIFI_H
+#endif // ODROID_POWER_MATE_PRIV_WIFI_H

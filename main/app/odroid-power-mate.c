@@ -1,20 +1,21 @@
 #include <stdio.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
-#include "nvs_flash.h"
 #include "esp_netif.h"
+#include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
 #include "i2cdev.h"
 #include "indicator.h"
 #include "nconfig.h"
+#include "nvs_flash.h"
 #include "system.h"
 #include "wifi.h"
 
 void app_main(void)
 {
-    ESP_ERROR_CHECK(i2cdev_init());;
+    ESP_ERROR_CHECK(i2cdev_init());
+    ;
     init_led();
     led_set(LED_BLU, BLINK_TRIPLE);
     led_off(LED_BLU);

@@ -5,8 +5,8 @@
 #ifndef NCONFIG_H
 #define NCONFIG_H
 
-#include "nvs.h"
 #include "esp_err.h"
+#include "nvs.h"
 
 #define NCONFIG_NVS_NAMESPACE "er"
 #define NCONFIG_NOT_FOUND ESP_ERR_NVS_NOT_FOUND
@@ -45,4 +45,4 @@ esp_err_t nconfig_read(enum nconfig_type type, char* data, size_t len);
 // Remove key
 esp_err_t nconfig_delete(enum nconfig_type type);
 
-#endif //NCONFIG_H
+#endif // NCONFIG_H

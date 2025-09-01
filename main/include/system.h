@@ -9,4 +9,4 @@ void start_reboot_timer(int sec);
 void stop_reboot_timer();
 void start_webserver();
 
-#endif //SYSTEM_H
+#endif // SYSTEM_H

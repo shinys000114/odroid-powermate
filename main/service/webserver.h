@@ -14,4 +14,4 @@ void push_data_to_ws(cJSON* data);
 void register_reboot_endpoint(httpd_handle_t server);
 esp_err_t change_baud_rate(int baud_rate);
 
-#endif //ODROID_REMOTE_HTTP_WEBSERVER_H
+#endif // ODROID_REMOTE_HTTP_WEBSERVER_H

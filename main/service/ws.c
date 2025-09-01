@@ -3,13 +3,13 @@
 //
 
 #include "cJSON.h"
-#include "webserver.h"
+#include "driver/uart.h"
 #include "esp_err.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
-#include "nconfig.h"
-#include "driver/uart.h"
 #include "freertos/semphr.h"
+#include "nconfig.h"
+#include "webserver.h"
 
 #define UART_NUM UART_NUM_1
 #define BUF_SIZE (2048)
@@ -197,12 +197,10 @@ static void uart_polling_task(void* arg)
         size_t total_processed = 0;
         while (available_len > 0 && total_processed < BUF_SIZE)
         {
-            size_t read_size = (available_len > (BUF_SIZE - total_processed))
-                                   ? (BUF_SIZE - total_processed)
-                                   : available_len;
+            size_t read_size =
+                (available_len > (BUF_SIZE - total_processed)) ? (BUF_SIZE - total_processed) : available_len;
 
-            int bytes_read = uart_read_bytes(UART_NUM, data_buf + total_processed,
-                                             read_size, READ_TIMEOUT);
+            int bytes_read = uart_read_bytes(UART_NUM, data_buf + total_processed, read_size, READ_TIMEOUT);
 
             if (bytes_read <= 0)
             {
@@ -221,9 +219,8 @@ static void uart_polling_task(void* arg)
 
             while (offset < total_processed)
             {
-                const size_t chunk_size = (total_processed - offset > CHUNK_SIZE)
-                                              ? CHUNK_SIZE
-                                              : (total_processed - offset);
+                const size_t chunk_size =
+                    (total_processed - offset > CHUNK_SIZE) ? CHUNK_SIZE : (total_processed - offset);
 
                 struct ws_message msg;
                 msg.type = WS_MSG_UART;
@@ -333,13 +330,7 @@ void register_ws_endpoint(httpd_handle_t server)
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM, BUF_SIZE * 2, BUF_SIZE * 2, 0, NULL, 0));
 
-    httpd_uri_t ws = {
-        .uri = "/ws",
-        .method = HTTP_GET,
-        .handler = ws_handler,
-        .user_ctx = NULL,
-        .is_websocket = true
-    };
+    httpd_uri_t ws = {.uri = "/ws", .method = HTTP_GET, .handler = ws_handler, .user_ctx = NULL, .is_websocket = true};
     httpd_register_uri_handler(server, &ws);
 
     client_fd_mutex = xSemaphoreCreateMutex();
@@ -361,7 +352,4 @@ void push_data_to_ws(cJSON* data)
     }
 }
 
-esp_err_t change_baud_rate(int baud_rate)
-{
-    return uart_set_baudrate(UART_NUM, baud_rate);
-}
+esp_err_t change_baud_rate(int baud_rate) { return uart_set_baudrate(UART_NUM, baud_rate); }

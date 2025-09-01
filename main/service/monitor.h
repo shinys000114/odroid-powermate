@@ -21,4 +21,4 @@ typedef struct
 
 void init_status_monitor();
 
-#endif //ODROID_REMOTE_HTTP_MONITOR_H
+#endif // ODROID_REMOTE_HTTP_MONITOR_H

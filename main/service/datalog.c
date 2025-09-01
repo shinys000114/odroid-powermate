@@ -1,7 +1,7 @@
 #include "datalog.h"
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "esp_littlefs.h"
@@ -66,7 +66,9 @@ void datalog_init(void)
         else
         {
             // Add header for 3 channels
-            fprintf(f_write, "timestamp,usb_voltage,usb_current,usb_power,main_voltage,main_current,main_power,vin_voltage,vin_current,vin_power\n");
+            fprintf(f_write,
+                    "timestamp,usb_voltage,usb_current,usb_power,main_voltage,main_current,main_power,vin_voltage,vin_"
+                    "current,vin_power\n");
             fclose(f_write);
         }
     }
@@ -94,8 +96,10 @@ void datalog_add(uint32_t timestamp, const channel_data_t* channel_data)
             if (f_read == NULL || f_write == NULL)
             {
                 ESP_LOGE(TAG, "Failed to open files for truncation.");
-                if (f_read) fclose(f_read);
-                if (f_write) fclose(f_write);
+                if (f_read)
+                    fclose(f_read);
+                if (f_write)
+                    fclose(f_write);
                 return;
             }
 
@@ -142,14 +146,12 @@ void datalog_add(uint32_t timestamp, const channel_data_t* channel_data)
     }
 
     fprintf(f, "%lu", timestamp);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
+    {
         fprintf(f, ",%.3f,%.3f,%.3f", channel_data[i].voltage, channel_data[i].current, channel_data[i].power);
     }
     fprintf(f, "\n");
     fclose(f);
 }
 
-const char* datalog_get_path(void)
-{
-    return LOG_FILE_PATH;
-}
+const char* datalog_get_path(void) { return LOG_FILE_PATH; }

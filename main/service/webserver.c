@@ -1,16 +1,16 @@
 #include "webserver.h"
 #include <stdio.h>
 #include <string.h>
+#include "datalog.h"
+#include "esp_http_server.h"
+#include "esp_log.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_wifi.h"
-#include "esp_log.h"
-#include "esp_http_server.h"
-#include "nconfig.h"
-#include "monitor.h"
-#include "datalog.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "monitor.h"
+#include "nconfig.h"
 
 static const char* TAG = "WEBSERVER";
 
@@ -73,20 +73,11 @@ void start_webserver(void)
     }
 
     // Index page
-    httpd_uri_t index = {
-        .uri = "/",
-        .method = HTTP_GET,
-        .handler = index_handler,
-        .user_ctx = NULL
-    };
+    httpd_uri_t index = {.uri = "/", .method = HTTP_GET, .handler = index_handler, .user_ctx = NULL};
     httpd_register_uri_handler(server, &index);
 
     httpd_uri_t datalog_uri = {
-        .uri = "/datalog.csv",
-        .method = HTTP_GET,
-        .handler = datalog_download_handler,
-        .user_ctx = NULL
-    };
+        .uri = "/datalog.csv", .method = HTTP_GET, .handler = datalog_download_handler, .user_ctx = NULL};
     httpd_register_uri_handler(server, &datalog_uri);
 
     register_wifi_endpoint(server);

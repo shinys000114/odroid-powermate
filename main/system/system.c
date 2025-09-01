@@ -6,9 +6,9 @@
 
 #include <esp_log.h>
 #include <esp_timer.h>
+#include <string.h>
 #include "esp_http_server.h"
 #include "esp_system.h"
-#include <string.h>
 
 static const char* TAG = "odroid";
 
@@ -30,10 +30,7 @@ void start_reboot_timer(int sec)
 
     ESP_LOGI(TAG, "Device will reboot in %d seconds.", sec);
 
-    const esp_timer_create_args_t reboot_timer_args = {
-        .callback = &reboot_timer_callback,
-        .name = "reboot-timer"
-    };
+    const esp_timer_create_args_t reboot_timer_args = {.callback = &reboot_timer_callback, .name = "reboot-timer"};
 
     if (esp_timer_create(&reboot_timer_args, &reboot_timer_handle) != ESP_OK)
     {
@@ -77,10 +74,6 @@ void stop_reboot_timer()
 void register_reboot_endpoint(httpd_handle_t server)
 {
     httpd_uri_t post_uri = {
-        .uri = "/api/reboot",
-        .method = HTTP_POST,
-        .handler = reboot_post_handler,
-        .user_ctx = NULL
-    };
+        .uri = "/api/reboot", .method = HTTP_POST, .handler = reboot_post_handler, .user_ctx = NULL};
     httpd_register_uri_handler(server, &post_uri);
 }

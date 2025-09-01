@@ -1,10 +1,10 @@
-#include "webserver.h"
+#include "cJSON.h"
 #include "driver/gpio.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
-#include "cJSON.h"
 #include "freertos/FreeRTOS.h"
 #include "sw.h"
+#include "webserver.h"
 
 static esp_err_t control_get_handler(httpd_req_t* req)
 {
@@ -53,16 +53,20 @@ static esp_err_t control_post_handler(httpd_req_t* req)
     }
 
     cJSON* item_12v = cJSON_GetObjectItem(root, "load_12v_on");
-    if (cJSON_IsBool(item_12v)) set_main_load_switch(cJSON_IsTrue(item_12v));
+    if (cJSON_IsBool(item_12v))
+        set_main_load_switch(cJSON_IsTrue(item_12v));
 
     cJSON* item_5v = cJSON_GetObjectItem(root, "load_5v_on");
-    if (cJSON_IsBool(item_5v)) set_usb_load_switch(cJSON_IsTrue(item_5v));
+    if (cJSON_IsBool(item_5v))
+        set_usb_load_switch(cJSON_IsTrue(item_5v));
 
     cJSON* power_trigger = cJSON_GetObjectItem(root, "power_trigger");
-    if (cJSON_IsTrue(power_trigger)) trig_power();
+    if (cJSON_IsTrue(power_trigger))
+        trig_power();
 
     cJSON* reset_trigger = cJSON_GetObjectItem(root, "reset_trigger");
-    if (cJSON_IsTrue(reset_trigger)) trig_reset();
+    if (cJSON_IsTrue(reset_trigger))
+        trig_reset();
 
     cJSON_Delete(root);
 
@@ -73,19 +77,10 @@ static esp_err_t control_post_handler(httpd_req_t* req)
 void register_control_endpoint(httpd_handle_t server)
 {
     init_sw();
-    httpd_uri_t get_uri = {
-        .uri = "/api/control",
-        .method = HTTP_GET,
-        .handler = control_get_handler,
-        .user_ctx = NULL
-    };
+    httpd_uri_t get_uri = {.uri = "/api/control", .method = HTTP_GET, .handler = control_get_handler, .user_ctx = NULL};
     httpd_register_uri_handler(server, &get_uri);
 
     httpd_uri_t post_uri = {
-        .uri = "/api/control",
-        .method = HTTP_POST,
-        .handler = control_post_handler,
-        .user_ctx = NULL
-    };
+        .uri = "/api/control", .method = HTTP_POST, .handler = control_post_handler, .user_ctx = NULL};
     httpd_register_uri_handler(server, &post_uri);
 }

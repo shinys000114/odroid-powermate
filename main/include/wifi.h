@@ -44,21 +44,21 @@ esp_err_t wifi_disconnect(void);
  * @param ap_records A pointer to store the found AP records.
  * @param count A pointer to store the number of found APs.
  */
-void wifi_scan_aps(wifi_ap_record_t **ap_records, uint16_t *count);
+void wifi_scan_aps(wifi_ap_record_t** ap_records, uint16_t* count);
 
 /**
  * @brief Gets information about the currently connected access point.
  * @param ap_info A pointer to a structure to store the AP information.
  * @return ESP_OK on success, or an error code on failure.
  */
-esp_err_t wifi_get_current_ap_info(wifi_ap_record_t *ap_info);
+esp_err_t wifi_get_current_ap_info(wifi_ap_record_t* ap_info);
 
 /**
  * @brief Gets the current IP information for the STA interface.
  * @param ip_info A pointer to a structure to store the IP information.
  * @return ESP_OK on success, or an error code on failure.
  */
-esp_err_t wifi_get_current_ip_info(esp_netif_ip_info_t *ip_info);
+esp_err_t wifi_get_current_ip_info(esp_netif_ip_info_t* ip_info);
 
 /**
  * @brief Gets the DNS server information for the STA interface.
@@ -66,7 +66,7 @@ esp_err_t wifi_get_current_ip_info(esp_netif_ip_info_t *ip_info);
  * @param dns_info A pointer to a structure to store the DNS information.
  * @return ESP_OK on success, or an error code on failure.
  */
-esp_err_t wifi_get_dns_info(esp_netif_dns_type_t type, esp_netif_dns_info_t *dns_info);
+esp_err_t wifi_get_dns_info(esp_netif_dns_type_t type, esp_netif_dns_info_t* dns_info);
 
 /**
  * @brief Configures the STA interface to use DHCP.
@@ -110,4 +110,4 @@ void sync_time();
  */
 esp_err_t wifi_sta_set_ap(const char* ssid, const char* password);
 
-#endif //WIFI_H
+#endif // WIFI_H

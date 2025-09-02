@@ -63,7 +63,7 @@ static void unified_ws_sender_task(void* arg)
 
     while (1)
     {
-        if (xQueueReceive(ws_queue, &msg, PING_INTERVAL))
+        if (xQueueReceive(ws_queue, &msg, portMAX_DELAY))
         {
             size_t clients = MAX_CLIENT;
             if (httpd_get_client_list(server, &clients, client_fds) != ESP_OK)
@@ -97,37 +97,6 @@ static void unified_ws_sender_task(void* arg)
                 }
             }
             free(msg.data);
-        }
-        else
-        {
-            size_t clients = max_clients;
-            if (httpd_get_client_list(server, &clients, client_fds) != ESP_OK)
-            {
-                continue;
-            }
-
-            if (clients == 0)
-            {
-                continue;
-            }
-
-            httpd_ws_frame_t ping_pkt = {0};
-            ping_pkt.type = HTTPD_WS_TYPE_PING;
-            ping_pkt.final = true;
-
-            for (size_t i = 0; i < clients; ++i)
-            {
-                int fd = client_fds[i];
-                if (httpd_ws_get_fd_info(server, fd) == HTTPD_WS_CLIENT_WEBSOCKET)
-                {
-                    esp_err_t err = httpd_ws_send_frame_async(server, fd, &ping_pkt);
-                    if (err != ESP_OK)
-                    {
-                        ESP_LOGW(TAG, "Failed to send PING frame, closing connection for fd %d, error: %s", fd,
-                                 esp_err_to_name(err));
-                    }
-                }
-            }
         }
     }
     free(client_fds);

@@ -6,46 +6,44 @@ This document outlines the HTTP REST and WebSocket APIs for communication betwee
 
 ## WebSocket API
 
-The WebSocket API provides a full-duplex communication channel for real-time data, such as sensor metrics and the interactive serial console.
+The WebSocket API provides a full-duplex communication channel for real-time data, such as sensor metrics and the
+interactive serial console. All server-to-client communication is done via binary WebSocket frames containing Protocol
+Buffers (protobuf) messages.
 
 **Endpoint**: `/ws`
 
-> **Note**: The server only accepts one WebSocket client at a time. Subsequent connection attempts will be rejected with a `403 Forbidden` error until the active client disconnects.
-
 ### Server-to-Client Messages
 
-The server pushes messages to the client, which can be either JSON objects or raw binary data. JSON messages always contain a `type` field to identify the payload.
+The server pushes binary messages to the client. Each message is a Protocol Buffers (protobuf) encoded `StatusMessage`.
+This top-level message uses a `oneof` field to carry different payload types.
 
-#### JSON Messages
+The protobuf schema is defined in `proto/status.proto`.
 
-| Type          | Description                                                                     | Payload Example                                                                                                      |
-|---------------|---------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| `sensor_data` | Pushed periodically (e.g., every second) with the latest power metrics.         | `{"type":"sensor_data", "voltage":12.01, "current":1.52, "power":18.25, "uptime_sec":3600, "timestamp": 1672531200}` |
-| `wifi_status` | Pushed periodically or on change to update the current Wi-Fi connection status. | `{"type":"wifi_status", "connected":true, "ssid":"MyHome_WiFi", "rssi":-65}`                                         |
+```proto
+// Top-level message for all websocket communication
+message StatusMessage {
+   oneof payload {
+    SensorData sensor_data = 1;
+    WifiStatus wifi_status = 2;
+    UartData uart_data = 3;
+  }
+}
+```
 
-**Field Descriptions:**
-- `sensor_data`:
-  - `voltage` (float): The measured voltage in Volts (V).
-  - `current` (float): The measured current in Amperes (A).
-  - `power` (float): The calculated power in Watts (W).
-  - `uptime_sec` (integer): The system uptime in seconds.
-  - `timestamp` (integer): A Unix timestamp (seconds) of when the measurement was taken.
-- `wifi_status`:
-  - `connected` (boolean): `true` if connected to a Wi-Fi network, `false` otherwise.
-  - `ssid` (string): The SSID of the connected network. Null if not connected.
-  - `rssi` (integer): The Received Signal Strength Indicator in dBm. Null if not connected.
+The client decodes the `StatusMessage` and then handles the specific payload:
 
-#### Raw Binary Data
-
-- **Description**: Raw binary data from the ODROID's serial (UART) port is forwarded directly to the client. This is used to display the terminal output.
-- **Payload**: `(binary data)`
+| `oneof` payload field | Contained Message | Description                                                                             |
+|-----------------------|-------------------|-----------------------------------------------------------------------------------------|
+| `sensor_data`         | `SensorData`      | Pushed periodically (e.g., every second) with the latest power metrics.                 |
+| `wifi_status`         | `WifiStatus`      | Pushed periodically or on change to update the current Wi-Fi connection status.         |
+| `uart_data`           | `UartData`        | Forwards raw binary data from the ODROID's serial (UART) port to the client's terminal. |
 
 ### Client-to-Server Messages
 
-The client primarily sends raw binary data, which is interpreted as terminal input.
+The client sends raw binary/text data, which is interpreted as terminal input.
 
 - **Description**: Raw binary data representing user input from the web terminal. This data is forwarded directly to the ODROID's serial (UART) port.
-- **Payload**: `(binary data)`
+- **Payload**: `(raw data)`
 
 ---
 

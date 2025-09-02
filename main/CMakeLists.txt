@@ -2,6 +2,12 @@
 set(WEB_APP_SOURCE_DIR ${CMAKE_SOURCE_DIR}/page)
 set(GZ_OUTPUT_FILE ${WEB_APP_SOURCE_DIR}/dist/index.html.gz)
 
+set(PROTO_DIR ${CMAKE_SOURCE_DIR}/proto)
+set(PROTO_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
+set(PROTO_FILE ${PROTO_DIR}/status.proto)
+set(PROTO_C_FILE ${PROTO_OUT_DIR}/status.pb.c)
+set(PROTO_H_FILE ${PROTO_OUT_DIR}/status.pb.h)
+
 # Check npm is available
 find_program(NPM_EXECUTABLE npm)
 if (NOT NPM_EXECUTABLE)
@@ -10,8 +16,8 @@ endif ()
 
 # Register the component. Now, CMake knows how GZ_OUTPUT_FILE is generated
 # and can correctly handle the dependency for embedding.
-idf_component_register(SRC_DIRS "app" "nconfig" "wifi" "indicator" "system" "service"
-        INCLUDE_DIRS "include"
+idf_component_register(SRC_DIRS "app" "nconfig" "wifi" "indicator" "system" "service" "proto"
+        INCLUDE_DIRS "include" "proto"
         EMBED_FILES ${GZ_OUTPUT_FILE}
 )
 
@@ -48,4 +54,18 @@ add_custom_target(build_web_app ALL
         DEPENDS ${GZ_OUTPUT_FILE}
 )
 
+add_custom_command(
+        OUTPUT ${PROTO_C_FILE} ${PROTO_H_FILE}
+        COMMAND protoc --nanopb_out=${PROTO_OUT_DIR} status.proto
+        WORKING_DIRECTORY ${PROTO_DIR}
+        DEPENDS ${PROTO_FILE}
+        COMMENT "Generating C sources from ${PROTO_FILE} using nanopb"
+        VERBATIM
+)
 
+add_custom_target(protobuf_generate ALL
+        DEPENDS ${PROTO_C_FILE} ${PROTO_H_FILE}
+)
+
+add_dependencies(${COMPONENT_LIB} build_web_app)
+add_dependencies(${COMPONENT_LIB} protobuf_generate)

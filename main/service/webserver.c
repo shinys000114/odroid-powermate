@@ -67,6 +67,7 @@ void start_webserver(void)
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 1024 * 8;
     config.max_uri_handlers = 10;
+    config.task_priority = 12;
 
     if (httpd_start(&server, &config) != ESP_OK)
     {

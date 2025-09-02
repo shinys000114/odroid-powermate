@@ -10,9 +10,10 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './style.css';
 
-// --- Module Imports ---
-import {initWebSocket} from './websocket.js';
-import {setupTerminal, term} from './terminal.js';
+// --- Module Imports -- -
+import { StatusMessage } from './proto.js';
+import { initWebSocket } from './websocket.js';
+import { setupTerminal, term } from './terminal.js';
 import {
     applyTheme,
     initUI,
@@ -21,14 +22,13 @@ import {
     updateWebsocketStatus,
     updateWifiStatusUI
 } from './ui.js';
-import {setupEventListeners} from './events.js';
+import { setupEventListeners } from './events.js';
+
+// --- Globals ---
+// StatusMessage is imported directly from the generated proto.js file.
 
 // --- WebSocket Event Handlers ---
 
-/**
- * Callback function for when the WebSocket connection is successfully opened.
- * Updates the UI to show an 'Online' status and fetches the initial control status.
- */
 function onWsOpen() {
     updateWebsocketStatus(true);
     if (term) {
@@ -36,85 +36,86 @@ function onWsOpen() {
     }
 }
 
-/**
- * Callback function for when the WebSocket connection is closed.
- * Updates the UI to show an 'Offline' status and attempts to reconnect after a delay.
- */
 function onWsClose() {
     updateWebsocketStatus(false);
     if (term) {
         term.write('\r\n\x1b[31mConnection closed. Reconnecting...\x1b[0m\r\n');
     }
-    // Attempt to re-establish the connection after 2 seconds
     setTimeout(connect, 2000);
 }
 
 /**
- * Callback function for when a message is received from the WebSocket server.
- * It handles both JSON messages (for sensor and status updates) and binary data (for the terminal).
+ * Callback for when a message is received from the WebSocket server.
+ * This version includes extensive logging for debugging purposes.
  * @param {MessageEvent} event - The WebSocket message event.
  */
 function onWsMessage(event) {
-    if (typeof event.data === 'string') {
-        try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'sensor_data') {
-                updateSensorUI(message);
-            } else if (message.type === 'wifi_status') {
-                updateWifiStatusUI(message);
+    // Log any incoming message to the console for debugging.
+
+    if (!(event.data instanceof ArrayBuffer)) {
+        console.warn('Message is not an ArrayBuffer, skipping protobuf decoding.');
+        return;
+    }
+
+    const buffer = new Uint8Array(event.data);
+    try {
+        const decodedMessage = StatusMessage.decode(buffer);
+        const payloadType = decodedMessage.payload;
+
+        switch (payloadType) {
+            case 'sensorData': {
+                const sensorData = decodedMessage.sensorData;
+                if (sensorData) {
+                    const sensorPayload = {
+                        ...sensorData,
+                        USB: sensorData.usb,
+                        MAIN: sensorData.main,
+                        VIN: sensorData.vin,
+                    };
+                    // Log the exact data being sent to the UI function
+                    updateSensorUI(sensorPayload);
+                }
+                break;
             }
-        } catch (e) {
-            // Ignore non-JSON string messages
+
+            case 'wifiStatus':
+                updateWifiStatusUI(decodedMessage.wifiStatus);
+                break;
+
+            case 'uartData':
+                if (term && decodedMessage.uartData && decodedMessage.uartData.data) {
+                    term.write(decodedMessage.uartData.data);
+                }
+                break;
+
+            default:
+                console.warn('Received message with unknown or empty payload type:', payloadType);
+                break;
         }
-    } else if (term && event.data instanceof ArrayBuffer) {
-        // Write raw UART data to the terminal
-        const data = new Uint8Array(event.data);
-        term.write(data);
+    } catch (e) {
+        console.error('Error decoding protobuf message:', e);
     }
 }
 
+
 // --- Application Initialization ---
 
-/**
- * Establishes the connection-related parts of the application.
- * Fetches initial status and initializes WebSocket.
- */
 function connect() {
-    // Fetch initial status on page load or reconnect
     updateControlStatus();
-
-    // Establish the WebSocket connection with the defined handlers
-    initWebSocket({
-        onOpen: onWsOpen,
-        onClose: onWsClose,
-        onMessage: onWsMessage
-    });
+    initWebSocket({ onOpen: onWsOpen, onClose: onWsClose, onMessage: onWsMessage });
 }
 
-/**
- * Initializes the entire application.
- * This function sets up the UI, theme, terminal, and event listeners.
- * It should only be called once when the DOM is loaded.
- */
 function initialize() {
-    // Initialize basic UI components
     initUI();
-
-    // Set up the interactive components first
     setupTerminal();
 
-    // Apply the saved theme or detect the user's preferred theme.
     const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     applyTheme(savedTheme);
 
-    // Attach all event listeners to the DOM elements
     setupEventListeners();
 
-    // Start the connection process
     connect();
 }
 
 // --- Start Application ---
-
-// Wait for the DOM to be fully loaded before initializing the application.
 document.addEventListener('DOMContentLoaded', initialize);

@@ -3,3 +3,4 @@ dependencies:
   joltwallet/littlefs: ==1.20.1
   esp-idf-lib/ina3221: ^1.1.7
   esp-idf-lib/pca9557: ^1.0.7
+  nikas-belogolov/nanopb: ^1.0.0

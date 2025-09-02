@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+// Represents data for a single sensor channel
+message SensorChannelData {
+  float voltage = 1;
+  float current = 2;
+  float power = 3;
+}
+
+// Contains data for all sensor channels and system info
+message SensorData {
+  SensorChannelData usb = 1;
+  SensorChannelData main = 2;
+  SensorChannelData vin = 3;
+  uint32 timestamp = 4;
+  uint32 uptime_sec = 5;
+}
+
+// Contains WiFi connection status
+message WifiStatus {
+  bool connected = 1;
+  string ssid = 2;
+  int32 rssi = 3;
+}
+
+// Contains raw UART data
+message UartData {
+  bytes data = 1;
+}
+
+// Top-level message for all websocket communication
+message StatusMessage {
+   oneof payload {
+    SensorData sensor_data = 1;
+    WifiStatus wifi_status = 2;
+    UartData uart_data = 3;
+  }
+}

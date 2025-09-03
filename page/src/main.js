@@ -11,18 +11,19 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './style.css';
 
 // --- Module Imports -- -
-import { StatusMessage } from './proto.js';
-import { initWebSocket } from './websocket.js';
-import { setupTerminal, term } from './terminal.js';
+import {StatusMessage} from './proto.js';
+import {initWebSocket} from './websocket.js';
+import {setupTerminal, term} from './terminal.js';
 import {
     applyTheme,
     initUI,
     updateControlStatus,
     updateSensorUI,
+    updateUptimeUI,
     updateWebsocketStatus,
     updateWifiStatusUI
 } from './ui.js';
-import { setupEventListeners } from './events.js';
+import {setupEventListeners} from './events.js';
 
 // --- Globals ---
 // StatusMessage is imported directly from the generated proto.js file.
@@ -46,12 +47,9 @@ function onWsClose() {
 
 /**
  * Callback for when a message is received from the WebSocket server.
- * This version includes extensive logging for debugging purposes.
  * @param {MessageEvent} event - The WebSocket message event.
  */
 function onWsMessage(event) {
-    // Log any incoming message to the console for debugging.
-
     if (!(event.data instanceof ArrayBuffer)) {
         console.warn('Message is not an ArrayBuffer, skipping protobuf decoding.');
         return;
@@ -66,14 +64,19 @@ function onWsMessage(event) {
             case 'sensorData': {
                 const sensorData = decodedMessage.sensorData;
                 if (sensorData) {
+                    // Create a payload for the sensor UI (charts and header)
                     const sensorPayload = {
-                        ...sensorData,
                         USB: sensorData.usb,
                         MAIN: sensorData.main,
                         VIN: sensorData.vin,
+                        timestamp: sensorData.timestamp
                     };
-                    // Log the exact data being sent to the UI function
                     updateSensorUI(sensorPayload);
+
+                    // Update uptime separately from the sensor data payload
+                    if (sensorData.uptimeSec !== undefined) {
+                        updateUptimeUI(sensorData.uptimeSec);
+                    }
                 }
                 break;
             }
@@ -89,7 +92,9 @@ function onWsMessage(event) {
                 break;
 
             default:
-                console.warn('Received message with unknown or empty payload type:', payloadType);
+                if (payloadType !== undefined) {
+                    console.warn('Received message with unknown or empty payload type:', payloadType);
+                }
                 break;
         }
     } catch (e) {

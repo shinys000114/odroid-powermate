@@ -47,12 +47,18 @@ export function updateSensorUI(data) {
         dom.powerDisplay.textContent = `${data.VIN.power.toFixed(2)} W`;
     }
 
-    if (data.uptime_sec !== undefined) {
-        dom.uptimeDisplay.textContent = formatUptime(data.uptime_sec);
-    }
-
     // Pass the entire multi-channel data object to the charts
     updateCharts(data);
+}
+
+/**
+ * Updates the system uptime display in the UI.
+ * @param {number} uptimeInSeconds - The system uptime in seconds.
+ */
+export function updateUptimeUI(uptimeInSeconds) {
+    if (uptimeInSeconds !== undefined) {
+        dom.uptimeDisplay.textContent = formatUptime(uptimeInSeconds);
+    }
 }
 
 /**

@@ -20,7 +20,7 @@ export function debounce(func, delay) {
 }
 
 /**
- * Formats a duration in total seconds into a human-readable string (e.g., "1d 02:30:15").
+ * Formats a duration in total seconds into a human-readable string (e.g., "2days 02:30:15").
  * @param {number} totalSeconds The total seconds to format.
  * @returns {string} The formatted uptime string.
  */
@@ -31,7 +31,7 @@ export function formatUptime(totalSeconds) {
     const seconds = totalSeconds % 60;
     const pad = (num) => String(num).padStart(2, '0');
     const timeString = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-    return days > 0 ? `${days}d ${timeString}` : timeString;
+    return days > 0 ? `${days}days ${timeString}` : timeString;
 }
 
 /**

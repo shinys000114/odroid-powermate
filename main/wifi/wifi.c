@@ -60,12 +60,10 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
     }
 }
 
-/**
- * @brief Initializes Wi-Fi, starts in APSTA mode.
- * This function should be called once from the application's main function.
- */
 void wifi_init(void)
 {
+    // Create network interfaces for both AP and STA.
+    // This is done unconditionally to allow for dynamic mode switching.
     esp_netif_create_default_wifi_ap();
     esp_netif_create_default_wifi_sta();
 
@@ -77,18 +75,43 @@ void wifi_init(void)
 
     initialize_sntp();
 
-    // Set default mode to APSTA
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+    char mode_str[10] = {0};
+    wifi_mode_t mode = WIFI_MODE_APSTA;
+    const char* started_mode_str = "APSTA";
 
-    // Initialize and configure AP and STA parts
-    wifi_init_ap();
-    wifi_init_sta();
+    if (nconfig_read(WIFI_MODE, mode_str, sizeof(mode_str)) == ESP_OK)
+    {
+        if (strcmp(mode_str, "sta") == 0)
+        {
+            mode = WIFI_MODE_STA;
+            started_mode_str = "STA";
+        }
+        else if (strcmp(mode_str, "apsta") != 0)
+        {
+            ESP_LOGW(TAG, "Invalid Wi-Fi mode in nconfig: '%s'. Defaulting to APSTA.", mode_str);
+        }
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Failed to read Wi-Fi mode from nconfig. Defaulting to APSTA.");
+    }
 
-    // Start Wi-Fi
+    ESP_ERROR_CHECK(esp_wifi_set_mode(mode));
+
+    if (mode == WIFI_MODE_APSTA)
+    {
+        wifi_init_ap();
+        wifi_init_sta();
+    }
+    else if (mode == WIFI_MODE_STA)
+    {
+        wifi_init_sta();
+    }
+
     ESP_ERROR_CHECK(esp_wifi_start());
 
     led_set(LED_BLU, BLINK_TRIPLE);
-    ESP_LOGI(TAG, "wifi_init_all finished. Started in APSTA mode.");
+    ESP_LOGI(TAG, "wifi_init_all finished. Started in %s mode.", started_mode_str);
 }
 
 esp_err_t wifi_switch_mode(const char* mode)
@@ -110,20 +133,21 @@ esp_err_t wifi_switch_mode(const char* mode)
         return ESP_ERR_INVALID_ARG;
     }
 
-    wifi_mode_t current_mode;
-    ESP_ERROR_CHECK(esp_wifi_get_mode(&current_mode));
-    if (current_mode == new_mode)
-    {
-        ESP_LOGI(TAG, "Already in %s mode", mode);
-        return ESP_OK;
-    }
-
     nconfig_write(WIFI_MODE, mode);
 
-    // To change mode, we need to stop wifi, set mode, and start again.
-    // This will cause a temporary disconnection but does not reboot the device.
     ESP_ERROR_CHECK(esp_wifi_stop());
     ESP_ERROR_CHECK(esp_wifi_set_mode(new_mode));
+
+    if (new_mode == WIFI_MODE_APSTA)
+    {
+        wifi_init_ap();
+        wifi_init_sta();
+    }
+    else if (new_mode == WIFI_MODE_STA)
+    {
+        wifi_init_sta();
+    }
+
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "Wi-Fi mode switched to %s", mode);

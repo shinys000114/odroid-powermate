@@ -44,6 +44,7 @@ void wifi_init_ap(void)
     wifi_config_t wifi_config = {
         .ap =
             {
+                .password = "",
                 .channel = AP_CHANNEL,
                 .max_connection = AP_MAX_CONN,
                 .authmode = WIFI_AUTH_WPA2_PSK,
@@ -68,10 +69,6 @@ void wifi_init_ap(void)
     if (nconfig_get_str_len(AP_PASSWORD, &len) == ESP_OK && len > 1)
     {
         nconfig_read(AP_PASSWORD, (char*)wifi_config.ap.password, sizeof(wifi_config.ap.password));
-    }
-    else
-    {
-        strcpy((char*)wifi_config.ap.password, DEFAULT_AP_PASS);
     }
 
     // If password is not set, use open authentication

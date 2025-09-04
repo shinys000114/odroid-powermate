@@ -160,6 +160,11 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-target="#current-limit-settings-pane" data-bs-toggle="tab"
+                                id="current-limit-settings-tab" role="tab" type="button">Current Limit
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <button class="nav-link" id="device-settings-tab" data-bs-toggle="tab"
                                 data-bs-target="#device-settings-pane" type="button" role="tab">Device
                         </button>
@@ -260,6 +265,36 @@
                         </div>
                         <div class="d-flex justify-content-end pt-3 border-top mt-3">
                             <button type="button" class="btn btn-primary me-2" id="ap-mode-apply-button">Apply</button>
+                            <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Close</button>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="current-limit-settings-pane" role="tabpanel">
+                        <div class="alert alert-info mt-3" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            Set a value of <strong>-1.0</strong> to disable a specific current limit. The value will be
+                            rounded to one decimal place.
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label" for="vin-current-limit-slider">VIN Current Limit: <span
+                                    class="fw-bold text-primary" id="vin-current-limit-value">...</span> A</label>
+                            <input class="form-range" id="vin-current-limit-slider" max="7.0" min="0" step="0.1"
+                                   type="range">
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label" for="main-current-limit-slider">Main Current Limit: <span
+                                    class="fw-bold text-primary" id="main-current-limit-value">...</span> A</label>
+                            <input class="form-range" id="main-current-limit-slider" max="6.0" min="0" step="0.1"
+                                   type="range">
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label" for="usb-current-limit-slider">USB Current Limit: <span
+                                    class="fw-bold text-primary" id="usb-current-limit-value">...</span> A</label>
+                            <input class="form-range" id="usb-current-limit-slider" max="3.0" min="0" step="0.1"
+                                   type="range">
+                        </div>
+                        <div class="d-flex justify-content-end pt-3 border-top mt-3">
+                            <button class="btn btn-primary me-2" id="current-limit-apply-button" type="button">Apply
+                            </button>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         </div>
                     </div>
@@ -320,38 +355,5 @@
         </div>
     </div>
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const rebootButton = document.getElementById('reboot-button');
-        if (rebootButton) {
-            rebootButton.addEventListener('click', () => {
-                if (confirm('Are you sure you want to reboot the device?')) {
-                    fetch('/api/reboot', {
-                        method: 'POST',
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Reboot command sent:', data);
-                        const settingsModalEl = document.getElementById('settingsModal');
-                        const settingsModal = bootstrap.Modal.getInstance(settingsModalEl);
-                        if (settingsModal) {
-                            settingsModal.hide();
-                        }
-                        alert('Reboot command sent. The device will restart in 3 seconds.');
-                    })
-                    .catch(error => {
-                        console.error('Error sending reboot command:', error);
-                        alert('Failed to send reboot command.');
-                    });
-                }
-            });
-        }
-    });
-</script>
 </body>
 </html>

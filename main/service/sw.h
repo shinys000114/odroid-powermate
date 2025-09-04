@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 void init_sw();
+void config_sw();
 void trig_power();
 void trig_reset();
 void set_main_load_switch(bool on);

@@ -10,10 +10,22 @@
 static nvs_handle_t handle;
 
 const static char* keys[NCONFIG_TYPE_MAX] = {
-    [WIFI_SSID] = "wifi_ssid",     [WIFI_PASSWORD] = "wifi_pw",   [WIFI_MODE] = "wifi_mode", [AP_SSID] = "ap_ssid",
-    [AP_PASSWORD] = "ap_pw",       [NETIF_HOSTNAME] = "hostname", [NETIF_IP] = "ip",         [NETIF_GATEWAY] = "gw",
-    [NETIF_SUBNET] = "sn",         [NETIF_DNS1] = "dns1",         [NETIF_DNS2] = "dns2",     [NETIF_TYPE] = "dhcp",
+    [WIFI_SSID] = "wifi_ssid",
+    [WIFI_PASSWORD] = "wifi_pw",
+    [WIFI_MODE] = "wifi_mode",
+    [AP_SSID] = "ap_ssid",
+    [AP_PASSWORD] = "ap_pw",
+    [NETIF_HOSTNAME] = "hostname",
+    [NETIF_IP] = "ip",
+    [NETIF_GATEWAY] = "gw",
+    [NETIF_SUBNET] = "sn",
+    [NETIF_DNS1] = "dns1",
+    [NETIF_DNS2] = "dns2",
+    [NETIF_TYPE] = "dhcp",
     [UART_BAUD_RATE] = "baudrate",
+    [VIN_CURRENT_LIMIT] = "vin_climit",
+    [MAIN_CURRENT_LIMIT] = "main_climit",
+    [USB_CURRENT_LIMIT] = "usb_climit",
 };
 
 struct default_value
@@ -33,6 +45,9 @@ struct default_value const default_values[] = {
     {WIFI_MODE, "apsta"},
     {AP_SSID, "odroid-pm"},
     {AP_PASSWORD, "powermate"},
+    {VIN_CURRENT_LIMIT, "8.0"},
+    {MAIN_CURRENT_LIMIT, "7.0"},
+    {USB_CURRENT_LIMIT, "5.0"},
 };
 
 esp_err_t init_nconfig()

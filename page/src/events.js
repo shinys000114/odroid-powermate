@@ -15,6 +15,38 @@ import {debounce, isMobile} from './utils.js';
 let chartsInitialized = false;
 let listenersAttached = false;
 
+// --- Helper functions for settings ---
+
+function updateSliderValue(slider, span) {
+    if (!slider || !span) return;
+    let value = parseFloat(slider.value).toFixed(1);
+    if (value <= 0) {
+        span.textContent = 'Disabled';
+    } else {
+        span.textContent = `${value} A`;
+    }
+}
+
+function loadCurrentLimitSettings() {
+    fetch('/api/setting')
+        .then(response => response.json())
+        .then(data => {
+            if (data.vin_current_limit !== undefined) {
+                dom.vinSlider.value = data.vin_current_limit;
+                updateSliderValue(dom.vinSlider, dom.vinValueSpan);
+            }
+            if (data.main_current_limit !== undefined) {
+                dom.mainSlider.value = data.main_current_limit;
+                updateSliderValue(dom.mainSlider, dom.mainValueSpan);
+            }
+            if (data.usb_current_limit !== undefined) {
+                dom.usbSlider.value = data.usb_current_limit;
+                updateSliderValue(dom.usbSlider, dom.usbValueSpan);
+            }
+        })
+        .catch(error => console.error('Error fetching current limit settings:', error));
+}
+
 /**
  * Sets up all event listeners for the application's interactive elements.
  * This function is now idempotent and will only attach listeners once.
@@ -50,6 +82,53 @@ export function setupEventListeners() {
     dom.apModeApplyButton.addEventListener('click', ui.applyApModeSettings);
     dom.baudRateApplyButton.addEventListener('click', ui.applyBaudRateSettings);
 
+    // --- Device Settings (Reboot) ---
+    if (dom.rebootButton) {
+        dom.rebootButton.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reboot the device?')) {
+                fetch('/api/reboot', {method: 'POST'})
+                    .then(response => response.ok ? response.json() : Promise.reject('Network response was not ok'))
+                    .then(data => {
+                        console.log('Reboot command sent:', data);
+                        ui.hideSettingsModal();
+                        alert('Reboot command sent. The device will restart in 3 seconds.');
+                    })
+                    .catch(error => {
+                        console.error('Error sending reboot command:', error);
+                        alert('Failed to send reboot command.');
+                    });
+            }
+        });
+    }
+
+    // --- Current Limit Settings ---
+    dom.vinSlider.addEventListener('input', () => updateSliderValue(dom.vinSlider, dom.vinValueSpan));
+    dom.mainSlider.addEventListener('input', () => updateSliderValue(dom.mainSlider, dom.mainValueSpan));
+    dom.usbSlider.addEventListener('input', () => updateSliderValue(dom.usbSlider, dom.usbValueSpan));
+
+    dom.currentLimitApplyButton.addEventListener('click', () => {
+        const settings = {
+            vin_current_limit: parseFloat(dom.vinSlider.value),
+            main_current_limit: parseFloat(dom.mainSlider.value),
+            usb_current_limit: parseFloat(dom.usbSlider.value)
+        };
+
+        fetch('/api/setting', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(settings),
+        })
+            .then(response => response.ok ? response.json() : Promise.reject('Failed to apply settings'))
+            .then(data => {
+                console.log('Current limit settings applied:', data);
+            })
+            .catch((error) => {
+                console.error('Error applying current limit settings:', error);
+                alert('Failed to apply current limit settings.');
+            });
+    });
+
+
     // --- Settings Modal Toggles (for showing/hiding sections) ---
     dom.apModeToggle.addEventListener('change', () => {
         dom.apModeConfig.style.display = dom.apModeToggle.checked ? 'block' : 'none';
@@ -62,7 +141,12 @@ export function setupEventListeners() {
     // --- General App Listeners ---
     dom.settingsButton.addEventListener('click', ui.initializeSettings);
 
-    // --- Accessibility: Remove focus from modal elements before hiding ---
+    // --- Accessibility & Modal Events ---
+    dom.settingsModal.addEventListener('show.bs.modal', () => {
+        // Load settings when the modal is about to be shown
+        loadCurrentLimitSettings();
+    });
+
     const blurActiveElement = () => {
         if (document.activeElement && typeof document.activeElement.blur === 'function') {
             document.activeElement.blur();

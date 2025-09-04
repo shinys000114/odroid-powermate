@@ -39,6 +39,9 @@ enum nconfig_type
     NETIF_DNS2,         ///< The secondary DNS server address.
     NETIF_TYPE,         ///< The network interface type (e.g., "dhcp" or "static").
     UART_BAUD_RATE,     ///< The baud rate for the UART communication.
+    VIN_CURRENT_LIMIT, ///< The maximum current limit for the VIN.
+    MAIN_CURRENT_LIMIT, ///< The maximum current limit for the MAIN out.
+    USB_CURRENT_LIMIT, ///< The maximum current limit for the USB out.
     NCONFIG_TYPE_MAX,   ///< Sentinel for the maximum number of configuration types.
 };
 

@@ -58,6 +58,13 @@ menu "ODROID-MONITOR"
 			help
 				GPIO number for LED.
 
+		config GPIO_EXPANDER_RESET
+			int "Trigger reset GPIO Num"
+			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+			default 8
+			help
+				GPIO number for Reset expander.
+
 		config EXPANDER_GPIO_SW_12V
 			int "12v Load Switch GPIO Num"
 			range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX

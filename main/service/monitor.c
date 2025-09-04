@@ -3,26 +3,43 @@
 //
 
 #include "monitor.h"
+#include <nconfig.h>
 #include <time.h>
+#include "climit.h"
 #include "datalog.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_wifi_types_generic.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h" // Added for FreeRTOS tasks
 #include "ina3221.h"
 #include "pb.h"
 #include "pb_encode.h"
 #include "status.pb.h"
+#include "sw.h"
 #include "webserver.h"
 #include "wifi.h"
+
+#define CHANNEL_VIN INA3221_CHANNEL_3
+#define CHANNEL_MAIN INA3221_CHANNEL_2
+#define CHANNEL_USB INA3221_CHANNEL_1
 
 #define PM_SDA CONFIG_I2C_GPIO_SDA
 #define PM_SCL CONFIG_I2C_GPIO_SCL
 
+#define PM_INT_CRITICAL CONFIG_GPIO_INA3221_INT_CRITICAL
+#define PM_EXPANDER_RST CONFIG_GPIO_EXPANDER_RESET
+
 #define PB_BUFFER_SIZE 256
 
 static const char* TAG = "monitor";
+
+static esp_timer_handle_t sensor_timer;
+static esp_timer_handle_t wifi_status_timer;
+// static esp_timer_handle_t shutdown_load_sw; // No longer needed
+
+static TaskHandle_t shutdown_task_handle = NULL; // Global task handle
 
 ina3221_t ina3221 = {
     .shunt = {10, 10, 10},
@@ -138,12 +155,92 @@ static void status_wifi_callback(void* arg)
     send_pb_message(StatusMessage_fields, &message);
 }
 
-static esp_timer_handle_t sensor_timer;
-static esp_timer_handle_t wifi_status_timer;
+// New FreeRTOS task for shutdown logic
+static void shutdown_load_sw_task(void* pvParameters)
+{
+    while (1)
+    {
+        // Wait indefinitely for a notification from the ISR
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        ESP_LOGW(TAG, "critical interrupt triggered (via task)");
+        gpio_set_level(PM_EXPANDER_RST, 0);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        gpio_set_level(PM_EXPANDER_RST, 1);
+        config_sw();
+    }
+}
+
+static void IRAM_ATTR critical_isr_handler(void* arg)
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    if (shutdown_task_handle != NULL)
+    {
+        vTaskNotifyGiveFromISR(shutdown_task_handle, &xHigherPriorityTaskWoken);
+    }
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+static void gpio_init()
+{
+    // critical int
+    gpio_set_intr_type(PM_INT_CRITICAL, GPIO_INTR_NEGEDGE);
+    gpio_set_direction(PM_INT_CRITICAL, GPIO_MODE_INPUT);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(PM_INT_CRITICAL, critical_isr_handler, (void*)PM_INT_CRITICAL);
+
+    // rst expander
+    gpio_set_level(PM_EXPANDER_RST, 1);
+    gpio_set_direction(PM_EXPANDER_RST, GPIO_MODE_OUTPUT);
+}
+
+esp_err_t climit_set_vin(double value)
+{
+    float lim = (float)(value * 1000);
+    ESP_LOGI(TAG, "Setting VIN current limit to: %fmA", lim);
+    if (value > 0.0f)
+        return ina3221_set_critical_alert(&ina3221, CHANNEL_VIN, lim);
+    return ina3221_set_critical_alert(&ina3221, CHANNEL_VIN, (15.0f * 1000.0f));
+}
+
+esp_err_t climit_set_main(double value)
+{
+    float lim = (float)(value * 1000);
+    ESP_LOGI(TAG, "Setting MAIN current limit to: %fmA", lim);
+    if (value > 0.0f)
+        return ina3221_set_critical_alert(&ina3221, CHANNEL_MAIN, lim);
+    return ina3221_set_critical_alert(&ina3221, CHANNEL_VIN, (15.0f * 1000.0f));
+}
+
+esp_err_t climit_set_usb(double value)
+{
+    float lim = (float)(value * 1000);
+    ESP_LOGI(TAG, "Setting USB current limit to: %fmA", lim);
+    if (value > 0.0f)
+        return ina3221_set_critical_alert(&ina3221, CHANNEL_USB, lim);
+    return ina3221_set_critical_alert(&ina3221, CHANNEL_VIN, (15.0f * 1000.0f));
+}
 
 void init_status_monitor()
 {
+    gpio_init();
     ESP_ERROR_CHECK(ina3221_init_desc(&ina3221, 0x40, 0, PM_SDA, PM_SCL));
+
+    double lim;
+    char buf[10];
+
+    nconfig_read(VIN_CURRENT_LIMIT, buf, sizeof(buf));
+    lim = atof(buf);
+    climit_set_vin(lim);
+
+    nconfig_read(MAIN_CURRENT_LIMIT, buf, sizeof(buf));
+    lim = atof(buf);
+    climit_set_main(lim);
+
+    nconfig_read(USB_CURRENT_LIMIT, buf, sizeof(buf));
+    lim = atof(buf);
+    climit_set_usb(lim);
+
     datalog_init();
 
     const esp_timer_create_args_t sensor_timer_args = {.callback = &sensor_timer_callback,
@@ -152,6 +249,8 @@ void init_status_monitor()
 
     ESP_ERROR_CHECK(esp_timer_create(&sensor_timer_args, &sensor_timer));
     ESP_ERROR_CHECK(esp_timer_create(&wifi_timer_args, &wifi_status_timer));
+
+    xTaskCreate(shutdown_load_sw_task, "shutdown_sw_task", configMINIMAL_STACK_SIZE * 3, NULL, 15, &shutdown_task_handle);
 
     ESP_ERROR_CHECK(esp_timer_start_periodic(sensor_timer, 1000000));
     ESP_ERROR_CHECK(esp_timer_start_periodic(wifi_status_timer, 1000000 * 5));

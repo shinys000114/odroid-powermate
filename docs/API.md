@@ -114,6 +114,9 @@ Retrieves the complete current network and system configuration.
     "mode": "apsta",
     "net_type": "static",
     "baudrate": "115200",
+    "vin_current_limit": 8.0,
+    "main_current_limit": 7.0,
+    "usb_current_limit": 5.0,
     "ip": {
         "ip": "192.168.1.100",
         "gateway": "192.168.1.1",
@@ -130,6 +133,9 @@ Retrieves the complete current network and system configuration.
   - `mode` (string): The current Wi-Fi mode (`"sta"` or `"apsta"`).
   - `net_type` (string): The network type (`"dhcp"` or `"static"`).
   - `baudrate` (string): The current UART baud rate.
+  - `vin_current_limit` (number): The current limit for VIN in Amps. `0` means disabled.
+  - `main_current_limit` (number): The current limit for the Main channel in Amps. `0` means disabled.
+  - `usb_current_limit` (number): The current limit for the USB channel in Amps. `0` means disabled.
   - `ip` (object): Contains IP configuration details. Present even if using DHCP (may show the last-leased IP).
     - `ip` (string): The device's IP address.
     - `gateway` (string): The network gateway address.
@@ -160,17 +166,14 @@ This is a multi-purpose endpoint. The server determines the action based on the 
     { "net_type": "dhcp" }
     ```
   - **Request Body (for Static IP)**:
-    *Note: The `ip` object structure is consistent with the `GET /api/setting` response.*
     ```json
     {
       "net_type": "static",
-      "ip": {
-        "ip": "192.168.1.100",
-        "gateway": "192.168.1.1",
-        "subnet": "255.255.255.0",
-        "dns1": "8.8.8.8",
-        "dns2": "8.8.4.4"
-      }
+      "ip": "192.168.1.100",
+      "gateway": "192.168.1.1",
+      "subnet": "255.255.255.0",
+      "dns1": "8.8.8.8",
+      "dns2": "8.8.4.4"
     }
     ```
   - **Success Response (200 OK)**:
@@ -202,6 +205,18 @@ This is a multi-purpose endpoint. The server determines the action based on the 
     ```json
     { "status": "baudrate_updated" }
     ```
+
+- **Action: Configure Current Limits**
+  - **Request Body**:
+    *Note: You can set one or more limits in a single request. A value of `-1.0` disables the limit.*
+    ```json
+    {
+      "vin_current_limit": 7.5,
+      "main_current_limit": 6.0,
+      "usb_current_limit": -1.0
+    }
+    ```
+  - **Success Response (200 OK)**: `{"status":"current_limit_updated"}`
 
 ---
 

@@ -76,3 +76,13 @@ export const apPasswordInput = document.getElementById('ap-password');
 // --- Device Settings Elements ---
 export const baudRateSelect = document.getElementById('baud-rate-select');
 export const baudRateApplyButton = document.getElementById('baud-rate-apply-button');
+export const rebootButton = document.getElementById('reboot-button');
+
+// --- Current Limit Settings Elements ---
+export const vinSlider = document.getElementById('vin-current-limit-slider');
+export const vinValueSpan = document.getElementById('vin-current-limit-value');
+export const mainSlider = document.getElementById('main-current-limit-slider');
+export const mainValueSpan = document.getElementById('main-current-limit-value');
+export const usbSlider = document.getElementById('usb-current-limit-slider');
+export const usbValueSpan = document.getElementById('usb-current-limit-value');
+export const currentLimitApplyButton = document.getElementById('current-limit-apply-button');

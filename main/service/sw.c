@@ -54,9 +54,8 @@ static void trigger_off_callback(void* arg)
     xSemaphoreGive(expander_mutex);
 }
 
-void init_sw()
+void config_sw()
 {
-    ESP_ERROR_CHECK(pca9557_init_desc(&pca, 0x18, I2C_PORT, GPIO_SDA, GPIO_SCL));
     ESP_ERROR_CHECK(pca9557_set_mode(&pca, GPIO_MAIN, PCA9557_MODE_OUTPUT));
     ESP_ERROR_CHECK(pca9557_set_mode(&pca, GPIO_USB, PCA9557_MODE_OUTPUT));
     ESP_ERROR_CHECK(pca9557_set_mode(&pca, GPIO_PWR, PCA9557_MODE_OUTPUT));
@@ -70,6 +69,13 @@ void init_sw()
     load_switch_12v_status = val != 0 ? true : false;
     ESP_ERROR_CHECK(pca9557_get_level(&pca, CONFIG_EXPANDER_GPIO_SW_5V, &val));
     load_switch_5v_status = val != 0 ? true : false;
+}
+
+void init_sw()
+{
+    ESP_ERROR_CHECK(pca9557_init_desc(&pca, 0x18, I2C_PORT, GPIO_SDA, GPIO_SCL));
+
+    config_sw();
 
     const esp_timer_create_args_t power_timer_args = {
         .callback = &trigger_off_callback, .arg = (void*)GPIO_PWR, .name = "power_trigger_off"};

@@ -1,10 +1,11 @@
+#include <stdlib.h>
 #include "cJSON.h"
+#include "climit.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "nconfig.h"
-#include "system.h"
 #include "webserver.h"
 #include "wifi.h"
 
@@ -15,31 +16,42 @@ static esp_err_t setting_get_handler(httpd_req_t* req)
     wifi_ap_record_t ap_info;
     cJSON* root = cJSON_CreateObject();
 
-    char mode_buf[16];
-    if (nconfig_read(WIFI_MODE, mode_buf, sizeof(mode_buf)) == ESP_OK)
+    char buf[16];
+    if (nconfig_read(WIFI_MODE, buf, sizeof(buf)) == ESP_OK)
     {
-        cJSON_AddStringToObject(root, "mode", mode_buf);
+        cJSON_AddStringToObject(root, "mode", buf);
     }
     else
     {
         cJSON_AddStringToObject(root, "mode", "sta"); // Default to sta
     }
 
-    char net_type_buf[16];
-    if (nconfig_read(NETIF_TYPE, net_type_buf, sizeof(net_type_buf)) == ESP_OK)
+    if (nconfig_read(NETIF_TYPE, buf, sizeof(buf)) == ESP_OK)
     {
-        cJSON_AddStringToObject(root, "net_type", net_type_buf);
+        cJSON_AddStringToObject(root, "net_type", buf);
     }
     else
     {
         cJSON_AddStringToObject(root, "net_type", "dhcp"); // Default to dhcp
     }
 
-    // Add baudrate to the response
-    char baud_buf[16];
-    if (nconfig_read(UART_BAUD_RATE, baud_buf, sizeof(baud_buf)) == ESP_OK)
+    if (nconfig_read(UART_BAUD_RATE, buf, sizeof(buf)) == ESP_OK)
     {
-        cJSON_AddStringToObject(root, "baudrate", baud_buf);
+        cJSON_AddStringToObject(root, "baudrate", buf);
+    }
+
+    // Add current limits to the response
+    if (nconfig_read(VIN_CURRENT_LIMIT, buf, sizeof(buf)) == ESP_OK)
+    {
+        cJSON_AddNumberToObject(root, "vin_current_limit", atof(buf));
+    }
+    if (nconfig_read(MAIN_CURRENT_LIMIT, buf, sizeof(buf)) == ESP_OK)
+    {
+        cJSON_AddNumberToObject(root, "main_current_limit", atof(buf));
+    }
+    if (nconfig_read(USB_CURRENT_LIMIT, buf, sizeof(buf)) == ESP_OK)
+    {
+        cJSON_AddNumberToObject(root, "usb_current_limit", atof(buf));
     }
 
     if (wifi_get_current_ap_info(&ap_info) == ESP_OK)
@@ -143,6 +155,9 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
     cJSON* net_type_item = cJSON_GetObjectItem(root, "net_type");
     cJSON* ssid_item = cJSON_GetObjectItem(root, "ssid");
     cJSON* baud_item = cJSON_GetObjectItem(root, "baudrate");
+    cJSON* vin_climit_item = cJSON_GetObjectItem(root, "vin_current_limit");
+    cJSON* main_climit_item = cJSON_GetObjectItem(root, "main_current_limit");
+    cJSON* usb_climit_item = cJSON_GetObjectItem(root, "usb_current_limit");
 
     if (mode_item && cJSON_IsString(mode_item))
     {
@@ -252,6 +267,41 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
         nconfig_write(UART_BAUD_RATE, baudrate);
         change_baud_rate(strtol(baudrate, NULL, 10));
         httpd_resp_sendstr(req, "{\"status\":\"baudrate_updated\"}");
+    }
+    else if (vin_climit_item || main_climit_item || usb_climit_item)
+    {
+        char num_buf[10];
+        if (vin_climit_item && cJSON_IsNumber(vin_climit_item))
+        {
+            double val = vin_climit_item->valuedouble;
+            if (val >= 0.0 && val <= VIN_CURRENT_LIMIT_MAX)
+            {
+                snprintf(num_buf, sizeof(num_buf), "%.2f", val);
+                nconfig_write(VIN_CURRENT_LIMIT, num_buf);
+                climit_set_vin(val);
+            }
+        }
+        if (main_climit_item && cJSON_IsNumber(main_climit_item))
+        {
+            double val = main_climit_item->valuedouble;
+            if (val >= 0.0 && val <= MAIN_CURRENT_LIMIT_MAX)
+            {
+                snprintf(num_buf, sizeof(num_buf), "%.2f", val);
+                nconfig_write(MAIN_CURRENT_LIMIT, num_buf);
+                climit_set_main(val);
+            }
+        }
+        if (usb_climit_item && cJSON_IsNumber(usb_climit_item))
+        {
+            double val = usb_climit_item->valuedouble;
+            if (val >= 0.0 && val <= USB_CURRENT_LIMIT_MAX)
+            {
+                snprintf(num_buf, sizeof(num_buf), "%.2f", val);
+                nconfig_write(USB_CURRENT_LIMIT, num_buf);
+                climit_set_usb(val);
+            }
+        }
+        httpd_resp_sendstr(req, "{\"status\":\"current_limit_updated\"}");
     }
     else
     {

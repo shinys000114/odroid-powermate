@@ -86,5 +86,6 @@ void start_webserver(void)
     register_wifi_endpoint(server);
     register_ws_endpoint(server);
     register_control_endpoint(server);
+    register_reboot_endpoint(server);
     init_status_monitor();
 }

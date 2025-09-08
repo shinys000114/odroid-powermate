@@ -19,7 +19,7 @@ export const charts = {
 
 // Configuration for dynamic, step-wise Y-axis scaling
 const scaleConfig = {
-    power: {steps: [5, 20, 50, 150]},   // in Watts
+    power: {steps: [5, 20, 50, 160]},   // in Watts
     voltage: {steps: [5, 10, 15, 25]},    // in Volts
     current: {steps: [1, 2.5, 5, 10]}     // in Amps
 };

@@ -22,6 +22,13 @@ Before you begin, ensure you have the following installed and configured on your
 
 - **[ESP-IDF (Espressif IoT Development Framework)](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/get-started/index.html)**: This project is developed and tested with ESP-IDF v5.x.
 - **[Node.js and npm](https://nodejs.org/)**: Required to build the web application. Node.js LTS version (e.g., 18.x or later) is recommended.
+- **[Nanopb](https://github.com/nanopb/nanopb)**: Required to build for protobuf.
+
+### Install dependencies (Ubuntu)
+
+```bash
+sudo apt install nodejs npm nanopb
+```
 
 ## How to Build and Flash
 

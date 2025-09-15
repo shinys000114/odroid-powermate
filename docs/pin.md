@@ -13,6 +13,7 @@ minicom -D /dev/ttyACM0 -b 115200
 ## J2 UART Pin header
 
 Connected to the `U0RXD`, `U0TXD` system UART of the ESP32-C3. Currently not used on this board.
+It can be used as GPIO through appropriate configuration in esp-idf.
 
 ## J3 ODROID UART Connector
 
@@ -48,3 +49,4 @@ The output is set to 5.25V considering voltage drop. Please use with caution.
 **Reserved**
 
 SSD1309 OLED Connector
+It cannot be used as GPIO for other purposes because it shares the I2C bus with `PCA9557PW`, `INA3221`.

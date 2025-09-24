@@ -21,6 +21,7 @@ message WifiStatus {
   bool connected = 1;
   string ssid = 2;
   int32 rssi = 3;
+  string ip_address = 4;
 }
 
 // Contains raw UART data

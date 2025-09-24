@@ -82,6 +82,7 @@ export function updateSwitchStatusUI(swStatus) {
  */
 export function updateWifiStatusUI(data) {
     if (data.connected) {
+        // Update header status
         dom.wifiSsidStatus.textContent = data.ssid;
         dom.wifiStatus.title = `Signal Strength: ${data.rssi} dBm`;
         let iconClass = 'bi me-2 ';
@@ -91,12 +92,21 @@ export function updateWifiStatusUI(data) {
         dom.wifiIcon.className = iconClass;
         dom.wifiStatus.classList.replace('text-muted', 'text-success');
         dom.wifiStatus.classList.remove('text-danger');
+
+        // Update settings modal
+        dom.currentWifiSsid.textContent = data.ssid;
+        dom.currentWifiIp.textContent = `IP Address: ${data.ipAddress || 'N/A'}`;
     } else {
+        // Update header status
         dom.wifiSsidStatus.textContent = 'Disconnected';
         dom.wifiStatus.title = '';
         dom.wifiIcon.className = 'bi bi-wifi-off me-2';
         dom.wifiStatus.classList.replace('text-success', 'text-muted');
         dom.wifiStatus.classList.remove('text-danger');
+
+        // Update settings modal
+        dom.currentWifiSsid.textContent = 'Not Connected';
+        dom.currentWifiIp.textContent = 'IP Address: -';
     }
 }
 

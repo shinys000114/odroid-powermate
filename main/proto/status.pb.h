@@ -34,6 +34,7 @@ typedef struct _WifiStatus {
     bool connected;
     pb_callback_t ssid;
     int32_t rssi;
+    pb_callback_t ip_address;
 } WifiStatus;
 
 /* Contains raw UART data */
@@ -66,13 +67,13 @@ extern "C" {
 /* Initializer values for message structs */
 #define SensorChannelData_init_default           {0, 0, 0}
 #define SensorData_init_default                  {false, SensorChannelData_init_default, false, SensorChannelData_init_default, false, SensorChannelData_init_default, 0, 0}
-#define WifiStatus_init_default                  {0, {{NULL}, NULL}, 0}
+#define WifiStatus_init_default                  {0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define UartData_init_default                    {{{NULL}, NULL}}
 #define LoadSwStatus_init_default                {0, 0}
 #define StatusMessage_init_default               {0, {SensorData_init_default}}
 #define SensorChannelData_init_zero              {0, 0, 0}
 #define SensorData_init_zero                     {false, SensorChannelData_init_zero, false, SensorChannelData_init_zero, false, SensorChannelData_init_zero, 0, 0}
-#define WifiStatus_init_zero                     {0, {{NULL}, NULL}, 0}
+#define WifiStatus_init_zero                     {0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define UartData_init_zero                       {{{NULL}, NULL}}
 #define LoadSwStatus_init_zero                   {0, 0}
 #define StatusMessage_init_zero                  {0, {SensorData_init_zero}}
@@ -89,6 +90,7 @@ extern "C" {
 #define WifiStatus_connected_tag                 1
 #define WifiStatus_ssid_tag                      2
 #define WifiStatus_rssi_tag                      3
+#define WifiStatus_ip_address_tag                4
 #define UartData_data_tag                        1
 #define LoadSwStatus_main_tag                    1
 #define LoadSwStatus_usb_tag                     2
@@ -120,7 +122,8 @@ X(a, STATIC,   SINGULAR, UINT32,   uptime_sec,        5)
 #define WifiStatus_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, BOOL,     connected,         1) \
 X(a, CALLBACK, SINGULAR, STRING,   ssid,              2) \
-X(a, STATIC,   SINGULAR, INT32,    rssi,              3)
+X(a, STATIC,   SINGULAR, INT32,    rssi,              3) \
+X(a, CALLBACK, SINGULAR, STRING,   ip_address,        4)
 #define WifiStatus_CALLBACK pb_default_field_callback
 #define WifiStatus_DEFAULT NULL
 

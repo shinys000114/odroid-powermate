@@ -138,6 +138,8 @@ static void status_wifi_callback(void* arg)
     StatusMessage message = StatusMessage_init_zero;
     message.which_payload = StatusMessage_wifi_status_tag;
     WifiStatus* wifi_status = &message.payload.wifi_status;
+    char ip_str[16];
+    esp_netif_ip_info_t ip_info;
 
     if (wifi_get_current_ap_info(&ap_info) == ESP_OK)
     {
@@ -151,6 +153,17 @@ static void status_wifi_callback(void* arg)
         wifi_status->connected = false;
         wifi_status->ssid.arg = ""; // Empty string
         wifi_status->rssi = 0;
+    }
+
+    if (wifi_get_current_ip_info(&ip_info) == ESP_OK)
+    {
+        esp_ip4addr_ntoa(&ip_info.ip, ip_str, sizeof(ip_str));
+        wifi_status->ip_address.funcs.encode = &encode_string;
+        wifi_status->ip_address.arg = ip_str;
+    }
+    else
+    {
+        wifi_status->ip_address.arg = ""; // Empty string
     }
 
     send_pb_message(StatusMessage_fields, &message);

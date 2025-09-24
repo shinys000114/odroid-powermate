@@ -22,9 +22,24 @@ static esp_err_t index_handler(httpd_req_t* req)
     const size_t index_html_size = (index_html_end - index_html_start);
 
     httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, (const char*)index_html_start, index_html_size);
 
+    size_t remaining = index_html_size;
+    const char* ptr = (const char*)index_html_start;
+    while (remaining > 0) {
+        size_t to_send = remaining < 2048 ? remaining : 2048;
+        if (httpd_resp_send_chunk(req, ptr, to_send) != ESP_OK) {
+            ESP_LOGE(TAG, "File sending failed!");
+            httpd_resp_send_chunk(req, NULL, 0);
+            httpd_resp_send_500(req);
+            return ESP_FAIL;
+        }
+        ptr += to_send;
+        remaining -= to_send;
+    }
+
+    httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
 

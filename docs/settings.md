@@ -12,8 +12,8 @@
 
 The device boots in APSTA mode by default and services the following AP.
 
-- SSID: odroid-pm
-- Password: powermate
+- SSID: powermate
+- Password: hardkernel
 
 After connecting to the above AP using a smartphone, etc., you can configure the device by accessing the
 `http://192.168.4.1` address.

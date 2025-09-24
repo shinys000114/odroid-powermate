@@ -15,7 +15,7 @@
 void app_main(void)
 {
     printf("\n\n== ODROID POWER-MATE ===\n");
-    printf("Versgition: %s\n\n", VERSION_HASH);
+    printf("Version: %s-%s\n\n", VERSION_TAG, VERSION_HASH);
 
     ESP_ERROR_CHECK(i2cdev_init());
     init_led();

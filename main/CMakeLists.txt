@@ -78,3 +78,12 @@ execute_process(
 )
 
 add_compile_definitions(VERSION_HASH="${GIT_HASH}")
+
+execute_process(
+        COMMAND git describe --tags --abbrev=0
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+add_compile_definitions(VERSION_TAG="${GIT_TAG}")

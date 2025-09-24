@@ -82,7 +82,7 @@ static esp_err_t version_get_handler(httpd_req_t* req)
 {
     httpd_resp_set_type(req, "application/json");
     char buf[100];
-    sprintf(buf, "{\"version\": \"%s\"}", VERSION_HASH);
+    sprintf(buf, "{\"version\": \"%s-%s\"}", VERSION_TAG, VERSION_HASH);
     httpd_resp_send(req, buf, strlen(buf));
     return ESP_OK;
 }

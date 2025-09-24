@@ -37,6 +37,7 @@ static const char* TAG = "monitor";
 
 static esp_timer_handle_t sensor_timer;
 static esp_timer_handle_t wifi_status_timer;
+static esp_timer_handle_t long_press_timer;
 // static esp_timer_handle_t shutdown_load_sw; // No longer needed
 
 static TaskHandle_t shutdown_task_handle = NULL; // Global task handle
@@ -155,6 +156,22 @@ static void status_wifi_callback(void* arg)
     send_pb_message(StatusMessage_fields, &message);
 }
 
+// Placeholder for long press action
+static void handle_critical_long_press(void)
+{
+    ESP_LOGW(TAG, "Config reset triggered...");
+    reset_nconfig();
+}
+
+// Timer callback for long press detection
+static void long_press_timer_callback(void* arg)
+{
+    if (gpio_get_level(PM_INT_CRITICAL) == 0)
+    {
+        handle_critical_long_press();
+    }
+}
+
 // New FreeRTOS task for shutdown logic
 static void shutdown_load_sw_task(void* pvParameters)
 {
@@ -168,15 +185,26 @@ static void shutdown_load_sw_task(void* pvParameters)
         vTaskDelay(100 / portTICK_PERIOD_MS);
         gpio_set_level(PM_EXPANDER_RST, 1);
         config_sw();
+
+        // Start a 5-second timer to check for long press
+        esp_timer_start_once(long_press_timer, 5000000);
     }
 }
 
 static void IRAM_ATTR critical_isr_handler(void* arg)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    if (shutdown_task_handle != NULL)
+    if (gpio_get_level(PM_INT_CRITICAL) == 0) // Falling edge
     {
-        vTaskNotifyGiveFromISR(shutdown_task_handle, &xHigherPriorityTaskWoken);
+        if (shutdown_task_handle != NULL)
+        {
+            vTaskNotifyGiveFromISR(shutdown_task_handle, &xHigherPriorityTaskWoken);
+        }
+    }
+    else // Rising edge
+    {
+        // Stop the timer if the button is released
+        esp_timer_stop(long_press_timer);
     }
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
@@ -184,7 +212,7 @@ static void IRAM_ATTR critical_isr_handler(void* arg)
 static void gpio_init()
 {
     // critical int
-    gpio_set_intr_type(PM_INT_CRITICAL, GPIO_INTR_NEGEDGE);
+    gpio_set_intr_type(PM_INT_CRITICAL, GPIO_INTR_ANYEDGE);
     gpio_set_direction(PM_INT_CRITICAL, GPIO_MODE_INPUT);
     gpio_install_isr_service(0);
     gpio_isr_handler_add(PM_INT_CRITICAL, critical_isr_handler, (void*)PM_INT_CRITICAL);
@@ -246,9 +274,12 @@ void init_status_monitor()
     const esp_timer_create_args_t sensor_timer_args = {.callback = &sensor_timer_callback,
                                                        .name = "sensor_reading_timer"};
     const esp_timer_create_args_t wifi_timer_args = {.callback = &status_wifi_callback, .name = "wifi_status_timer"};
+    const esp_timer_create_args_t long_press_timer_args = {.callback = &long_press_timer_callback,
+                                                       .name = "long_press_timer"};
 
     ESP_ERROR_CHECK(esp_timer_create(&sensor_timer_args, &sensor_timer));
     ESP_ERROR_CHECK(esp_timer_create(&wifi_timer_args, &wifi_status_timer));
+    ESP_ERROR_CHECK(esp_timer_create(&long_press_timer_args, &long_press_timer));
 
     xTaskCreate(shutdown_load_sw_task, "shutdown_sw_task", configMINIMAL_STACK_SIZE * 3, NULL, 15, &shutdown_task_handle);
 

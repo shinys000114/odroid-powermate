@@ -114,6 +114,10 @@ footer a {
 
 /* Mobile Optimizations */
 @media (max-width: 767.98px) {
+    #login-container {
+        height: 100%;
+    }
+
     .main-header {
         flex-direction: column;
     }

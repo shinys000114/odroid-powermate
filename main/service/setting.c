@@ -8,11 +8,17 @@
 #include "nconfig.h"
 #include "webserver.h"
 #include "wifi.h"
+#include "auth.h"
 
 static const char* TAG = "webserver";
 
 static esp_err_t setting_get_handler(httpd_req_t* req)
 {
+    esp_err_t err = api_auth_check(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     wifi_ap_record_t ap_info;
     cJSON* root = cJSON_CreateObject();
 
@@ -103,6 +109,11 @@ static esp_err_t setting_get_handler(httpd_req_t* req)
 
 static esp_err_t wifi_scan(httpd_req_t* req)
 {
+    esp_err_t err = api_auth_check(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     wifi_ap_record_t* ap_records;
     uint16_t count;
 
@@ -133,6 +144,11 @@ static esp_err_t wifi_scan(httpd_req_t* req)
 
 static esp_err_t setting_post_handler(httpd_req_t* req)
 {
+    esp_err_t err = api_auth_check(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     char buf[512];
     int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
 

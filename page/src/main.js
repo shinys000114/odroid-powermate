@@ -31,6 +31,20 @@ import {setupEventListeners} from './events.js';
 // --- Globals ---
 // StatusMessage is imported directly from the generated proto.js file.
 
+// --- DOM Elements ---
+const loginContainer = document.getElementById('login-container');
+const mainContent = document.querySelector('main.container');
+const loginForm = document.getElementById('login-form');
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
+const loginAlert = document.getElementById('login-alert');
+const logoutButton = document.getElementById('logout-button');
+const themeToggleLogin = document.getElementById('theme-toggle-login');
+const themeIconLogin = document.getElementById('theme-icon-login');
+const themeToggleMain = document.getElementById('theme-toggle');
+const themeIconMain = document.getElementById('theme-icon');
+
+
 // --- WebSocket Event Handlers ---
 
 function onWsOpen() {
@@ -111,6 +125,80 @@ function onWsMessage(event) {
     }
 }
 
+// --- Authentication Functions ---
+
+function checkAuth() {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+async function handleLogin(event) {
+    event.preventDefault();
+    const username = usernameInput.value;
+    const password = passwordInput.value;
+
+    try {
+        const response = await api.login(username, password);
+        if (response && response.token) {
+            localStorage.setItem('authToken', response.token);
+            loginAlert.classList.add('d-none');
+            loginContainer.style.setProperty('display', 'none', 'important');
+            initializeMainAppContent(); // After successful login, initialize the main app
+        } else {
+            loginAlert.textContent = 'Login failed: No token received.';
+            loginAlert.classList.remove('d-none');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        loginAlert.textContent = `Login failed: ${error.message}`;
+        loginAlert.classList.remove('d-none');
+    }
+}
+
+function handleLogout() {
+    localStorage.removeItem('authToken');
+    // Hide main content and show login form
+    loginContainer.style.setProperty('display', 'flex', 'important');
+    mainContent.style.setProperty('display', 'none', 'important');
+    // Optionally, disconnect WebSocket or perform other cleanup
+    // For now, just hide the main content.
+}
+
+// --- Theme Toggle Functions ---
+function setupThemeToggles() {
+    // Initialize theme for login page
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    applyTheme(savedTheme);
+    themeToggleLogin.checked = savedTheme === 'dark';
+    themeIconLogin.className = savedTheme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+
+    // Sync main theme toggle with login theme toggle (initial state)
+    themeToggleMain.checked = savedTheme === 'dark';
+    themeIconMain.className = savedTheme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+
+    themeToggleLogin.addEventListener('change', () => {
+        const newTheme = themeToggleLogin.checked ? 'dark' : 'light';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        themeIconLogin.className = newTheme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+        themeToggleMain.checked = themeToggleLogin.checked; // Keep main toggle in sync
+        themeIconMain.className = themeIconLogin.className; // Keep main icon in sync
+    });
+
+    themeToggleMain.addEventListener('change', () => {
+        const newTheme = themeToggleMain.checked ? 'dark' : 'light';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        themeIconMain.className = newTheme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+        themeToggleLogin.checked = themeToggleMain.checked; // Keep login toggle in sync
+        themeIconLogin.className = themeIconMain.className; // Keep login icon in sync
+    });
+}
+
 
 // --- Application Initialization ---
 
@@ -131,17 +219,33 @@ function connect() {
     initWebSocket({ onOpen: onWsOpen, onClose: onWsClose, onMessage: onWsMessage });
 }
 
-function initialize() {
+// New function to initialize main app content after successful login or on initial load if authenticated
+function initializeMainAppContent() {
+    loginContainer.style.setProperty('display', 'none', 'important');
+    mainContent.style.setProperty('display', 'block', 'important');
+
     initUI();
     setupTerminal();
     initializeVersion();
-
-    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    applyTheme(savedTheme);
-
-    setupEventListeners();
-
+    setupEventListeners(); // Attach main app event listeners
+    logoutButton.addEventListener('click', handleLogout); // Attach logout listener
     connect();
+}
+
+function initialize() {
+    setupThemeToggles(); // Setup theme toggles for both login and main (initial sync)
+
+    // Always attach login form listener
+    loginForm.addEventListener('submit', handleLogin);
+
+    if (checkAuth()) { // Check authentication status
+        // If authenticated, initialize main content
+        initializeMainAppContent();
+    } else {
+        // If not authenticated, show login form
+        loginContainer.style.setProperty('display', 'flex', 'important');
+        mainContent.style.setProperty('display', 'none', 'important');
+    }
 }
 
 // --- Start Application ---

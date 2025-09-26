@@ -5,9 +5,15 @@
 #include "freertos/FreeRTOS.h"
 #include "sw.h"
 #include "webserver.h"
+#include "auth.h"
 
 static esp_err_t control_get_handler(httpd_req_t* req)
 {
+    esp_err_t err = api_auth_check(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     cJSON* root = cJSON_CreateObject();
 
     cJSON_AddBoolToObject(root, "load_12v_on", get_main_load_switch());
@@ -25,6 +31,11 @@ static esp_err_t control_get_handler(httpd_req_t* req)
 
 static esp_err_t control_post_handler(httpd_req_t* req)
 {
+    esp_err_t err = api_auth_check(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     char buf[128];
     int ret, remaining = req->content_len;
 

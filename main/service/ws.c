@@ -12,6 +12,7 @@
 #include "pb_encode.h"
 #include "status.pb.h"
 #include "webserver.h"
+#include "auth.h"
 
 #define UART_NUM UART_NUM_1
 #define BUF_SIZE (2048)
@@ -202,6 +203,11 @@ static void uart_event_task(void* arg)
 
 static esp_err_t ws_handler(httpd_req_t* req)
 {
+    // esp_err_t err = api_auth_check(req);
+    // if (err != ESP_OK) {
+    //     return err;
+    // }
+
     if (req->method == HTTP_GET)
     {
         ESP_LOGI(TAG, "Handshake done, the new connection was opened");

@@ -10,6 +10,7 @@ import * as api from './api.js';
 import * as ui from './ui.js';
 import {clearTerminal, downloadTerminalOutput, fitTerminal} from './terminal.js';
 import {debounce, isMobile} from './utils.js';
+import {getAuthHeaders, handleResponse} from './api.js'; // Import auth functions
 
 // A flag to track if charts have been initialized
 let chartsInitialized = false;
@@ -28,7 +29,10 @@ function updateSliderValue(slider, span) {
 }
 
 function loadCurrentLimitSettings() {
-    fetch('/api/setting')
+    fetch('/api/setting', {
+        headers: getAuthHeaders(), // Add auth headers
+    })
+        .then(handleResponse) // Handle response for 401
         .then(response => response.json())
         .then(data => {
             if (data.vin_current_limit !== undefined) {
@@ -58,13 +62,6 @@ export function setupEventListeners() {
     }
     console.log("Attaching event listeners...");
 
-    // --- Theme Toggle ---
-    dom.themeToggle.addEventListener('change', () => {
-        const newTheme = dom.themeToggle.checked ? 'dark' : 'light';
-        localStorage.setItem('theme', newTheme);
-        ui.applyTheme(newTheme);
-    });
-
     // --- Terminal Controls ---
     dom.clearButton.addEventListener('click', clearTerminal);
     dom.downloadButton.addEventListener('click', downloadTerminalOutput);
@@ -86,8 +83,12 @@ export function setupEventListeners() {
     if (dom.rebootButton) {
         dom.rebootButton.addEventListener('click', () => {
             if (confirm('Are you sure you want to reboot the device?')) {
-                fetch('/api/reboot', {method: 'POST'})
-                    .then(response => response.ok ? response.json() : Promise.reject('Network response was not ok'))
+                fetch('/api/reboot', {
+                    method: 'POST',
+                    headers: getAuthHeaders(), // Add auth headers
+                })
+                    .then(handleResponse) // Handle response for 401
+                    .then(response => response.json())
                     .then(data => {
                         console.log('Reboot command sent:', data);
                         ui.hideSettingsModal();
@@ -115,10 +116,14 @@ export function setupEventListeners() {
 
         fetch('/api/setting', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(), // Add auth headers
+            },
             body: JSON.stringify(settings),
         })
-            .then(response => response.ok ? response.json() : Promise.reject('Failed to apply settings'))
+            .then(handleResponse) // Handle response for 401
+            .then(response => response.json())
             .then(data => {
                 console.log('Current limit settings applied:', data);
             })

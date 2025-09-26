@@ -4,15 +4,63 @@
  * It abstracts the fetch logic, error handling, and JSON parsing for network and control operations.
  */
 
+// Function to get authentication headers
+export function getAuthHeaders() {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        return { 'Authorization': `Bearer ${token}` };
+    }
+    return {};
+}
+
+// Global error handler for unauthorized responses
+export async function handleResponse(response) {
+    if (response.status === 401) {
+        // Unauthorized, log out the user
+        localStorage.removeItem('authToken');
+        // Redirect to login or trigger a logout event
+        // For now, we'll just reload the page, which will trigger the login screen
+        window.location.reload();
+        throw new Error('Unauthorized: Session expired or invalid token.');
+    }
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+    }
+    return response;
+}
+
+/**
+ * Authenticates a user with the provided username and password.
+ * @param {string} username The user's username.
+ * @param {string} password The user's password.
+ * @returns {Promise<Object>} A promise that resolves to the server's JSON response containing a token.
+ * @throws {Error} Throws an error if the authentication fails.
+ */
+export async function login(username, password) {
+    const response = await fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, password }),
+    });
+    // Login function does not use handleResponse as it's for obtaining the token
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `Login failed with status: ${response.status}`);
+    }
+    return await response.json();
+}
+
 /**
  * Fetches the list of available Wi-Fi networks from the server.
  * @returns {Promise<Array<Object>>} A promise that resolves to an array of Wi-Fi access point objects.
  * @throws {Error} Throws an error if the network request fails.
  */
 export async function fetchWifiScan() {
-    const response = await fetch('/api/wifi/scan');
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json();
+    const response = await fetch('/api/wifi/scan', {
+        headers: getAuthHeaders(),
+    });
+    return await handleResponse(response).then(res => res.json());
 }
 
 /**
@@ -23,16 +71,15 @@ export async function fetchWifiScan() {
  * @throws {Error} Throws an error if the connection request fails.
  */
 export async function postWifiConnect(ssid, password) {
-    const response = await fetch('/api/setting', { // Updated URL
+    const response = await fetch('/api/setting', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+        },
         body: JSON.stringify({ssid, password}),
     });
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Connection failed with status: ${response.status}`);
-    }
-    return await response.json();
+    return await handleResponse(response).then(res => res.json());
 }
 
 /**
@@ -42,16 +89,15 @@ export async function postWifiConnect(ssid, password) {
  * @throws {Error} Throws an error if the request fails.
  */
 export async function postNetworkSettings(payload) {
-    const response = await fetch('/api/setting', { // Updated URL
+    const response = await fetch('/api/setting', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+        },
         body: JSON.stringify(payload),
     });
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Failed to apply settings with status: ${response.status}`);
-    }
-    return response;
+    return await handleResponse(response);
 }
 
 /**
@@ -63,14 +109,13 @@ export async function postNetworkSettings(payload) {
 export async function postBaudRateSetting(baudrate) {
     const response = await fetch('/api/setting', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+        },
         body: JSON.stringify({baudrate}),
     });
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Failed to apply baudrate with status: ${response.status}`);
-    }
-    return response;
+    return await handleResponse(response);
 }
 
 /**
@@ -79,9 +124,10 @@ export async function postBaudRateSetting(baudrate) {
  * @throws {Error} Throws an error if the network request fails.
  */
 export async function fetchSettings() {
-    const response = await fetch('/api/setting'); // Updated URL
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json();
+    const response = await fetch('/api/setting', {
+        headers: getAuthHeaders(),
+    });
+    return await handleResponse(response).then(res => res.json());
 }
 
 /**
@@ -90,9 +136,10 @@ export async function fetchSettings() {
  * @throws {Error} Throws an error if the network request fails.
  */
 export async function fetchControlStatus() {
-    const response = await fetch('/api/control');
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json();
+    const response = await fetch('/api/control', {
+        headers: getAuthHeaders(),
+    });
+    return await handleResponse(response).then(res => res.json());
 }
 
 /**
@@ -104,11 +151,13 @@ export async function fetchControlStatus() {
 export async function postControlCommand(command) {
     const response = await fetch('/api/control', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+        },
         body: JSON.stringify(command)
     });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response;
+    return await handleResponse(response);
 }
 
 /**
@@ -117,7 +166,8 @@ export async function postControlCommand(command) {
  * @throws {Error} Throws an error if the network request fails.
  */
 export async function fetchVersion() {
-    const response = await fetch('/api/version');
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json();
+    const response = await fetch('/api/version', {
+        headers: getAuthHeaders(),
+    });
+    return await handleResponse(response).then(res => res.json());
 }

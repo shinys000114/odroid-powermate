@@ -9,6 +9,7 @@
 #include <string.h>
 #include "esp_http_server.h"
 #include "esp_system.h"
+#include "auth.h"
 
 static const char* TAG = "odroid";
 
@@ -50,6 +51,11 @@ void start_reboot_timer(int sec)
 
 static esp_err_t reboot_post_handler(httpd_req_t* req)
 {
+    esp_err_t err = api_auth_check(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     httpd_resp_set_type(req, "application/json");
     const char* resp_str = "{\"status\": \"reboot timer started\"}";
     httpd_resp_send(req, resp_str, strlen(resp_str));
@@ -80,6 +86,11 @@ void register_reboot_endpoint(httpd_handle_t server)
 
 static esp_err_t version_get_handler(httpd_req_t* req)
 {
+    esp_err_t err = api_auth_check(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     httpd_resp_set_type(req, "application/json");
     char buf[100];
     sprintf(buf, "{\"version\": \"%s-%s\"}", VERSION_TAG, VERSION_HASH);

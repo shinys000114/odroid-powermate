@@ -28,6 +28,8 @@ const static char* keys[NCONFIG_TYPE_MAX] = {
     [VIN_CURRENT_LIMIT] = "vin_climit",
     [MAIN_CURRENT_LIMIT] = "main_climit",
     [USB_CURRENT_LIMIT] = "usb_climit",
+    [PAGE_USERNAME] = "username",
+    [PAGE_PASSWORD] = "password",
 };
 
 struct default_value
@@ -50,6 +52,8 @@ struct default_value const default_values[] = {
     {VIN_CURRENT_LIMIT, "4.0"},
     {MAIN_CURRENT_LIMIT, "3.0"},
     {USB_CURRENT_LIMIT, "3.0"},
+    {PAGE_USERNAME, "admin"},
+    {PAGE_PASSWORD, "password"},
 };
 
 esp_err_t init_nconfig()

@@ -42,6 +42,8 @@ enum nconfig_type
     VIN_CURRENT_LIMIT, ///< The maximum current limit for the VIN.
     MAIN_CURRENT_LIMIT, ///< The maximum current limit for the MAIN out.
     USB_CURRENT_LIMIT, ///< The maximum current limit for the USB out.
+    PAGE_USERNAME, ///< Webpage username
+    PAGE_PASSWORD, ///< Webpage password
     NCONFIG_TYPE_MAX,   ///< Sentinel for the maximum number of configuration types.
 };
 

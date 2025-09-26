@@ -177,6 +177,8 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
     cJSON* vin_climit_item = cJSON_GetObjectItem(root, "vin_current_limit");
     cJSON* main_climit_item = cJSON_GetObjectItem(root, "main_current_limit");
     cJSON* usb_climit_item = cJSON_GetObjectItem(root, "usb_current_limit");
+    cJSON* new_username_item = cJSON_GetObjectItem(root, "new_username");
+    cJSON* new_password_item = cJSON_GetObjectItem(root, "new_password");
 
     if (mode_item && cJSON_IsString(mode_item))
     {
@@ -321,6 +323,17 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
             }
         }
         httpd_resp_sendstr(req, "{\"status\":\"current_limit_updated\"}");
+    }
+    else if (new_username_item && cJSON_IsString(new_username_item) && new_password_item &&
+             cJSON_IsString(new_password_item))
+    {
+        const char* new_username = new_username_item->valuestring;
+        const char* new_password = new_password_item->valuestring;
+
+        nconfig_write(PAGE_USERNAME, new_username);
+        nconfig_write(PAGE_PASSWORD, new_password);
+        ESP_LOGI(TAG, "Username and password updated successfully.");
+        httpd_resp_sendstr(req, "{\"status\":\"user_credentials_updated\"}");
     }
     else
     {

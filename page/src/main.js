@@ -44,6 +44,12 @@ const themeIconLogin = document.getElementById('theme-icon-login');
 const themeToggleMain = document.getElementById('theme-toggle');
 const themeIconMain = document.getElementById('theme-icon');
 
+// User Settings DOM Elements
+const userSettingsForm = document.getElementById('user-settings-form');
+const newUsernameInput = document.getElementById('new-username');
+const newPasswordInput = document.getElementById('new-password');
+const confirmPasswordInput = document.getElementById('confirm-password');
+
 
 // --- WebSocket Event Handlers ---
 
@@ -168,6 +174,38 @@ function handleLogout() {
     // For now, just hide the main content.
 }
 
+// --- User Settings Functions ---
+async function handleUserSettingsSubmit(event) {
+    event.preventDefault();
+
+    const newUsername = newUsernameInput.value;
+    const newPassword = newPasswordInput.value;
+    const confirmPassword = confirmPasswordInput.value;
+
+    if (!newUsername || !newPassword || !confirmPassword) {
+        alert('Please fill in all fields for username and password.');
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        alert('New password and confirm password do not match.');
+        return;
+    }
+
+    try {
+        const response = await api.updateUserSettings(newUsername, newPassword);
+        if (response && response.status === 'user_credentials_updated') {
+            alert('Username and password updated successfully. Please log in again with new credentials.');
+            handleLogout(); // Force logout to re-authenticate with new credentials
+        } else {
+            alert(`Failed to update credentials: ${response.message || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Error updating user settings:', error);
+        alert(`Error updating user settings: ${error.message}`);
+    }
+}
+
 // --- Theme Toggle Functions ---
 function setupThemeToggles() {
     // Initialize theme for login page
@@ -230,6 +268,11 @@ function initializeMainAppContent() {
     setupEventListeners(); // Attach main app event listeners
     logoutButton.addEventListener('click', handleLogout); // Attach logout listener
     connect();
+
+    // Attach user settings form listener
+    if (userSettingsForm) {
+        userSettingsForm.addEventListener('submit', handleUserSettingsSubmit);
+    }
 }
 
 function initialize() {

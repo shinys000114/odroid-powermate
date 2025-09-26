@@ -171,3 +171,22 @@ export async function fetchVersion() {
     });
     return await handleResponse(response).then(res => res.json());
 }
+
+/**
+ * Updates the user's username and password on the server.
+ * @param {string} newUsername The new username.
+ * @param {string} newPassword The new password.
+ * @returns {Promise<Object>} A promise that resolves to the server's JSON response.
+ * @throws {Error} Throws an error if the update fails.
+ */
+export async function updateUserSettings(newUsername, newPassword) {
+    const response = await fetch('/api/setting', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+        },
+        body: JSON.stringify({new_username: newUsername, new_password: newPassword}),
+    });
+    return await handleResponse(response).then(res => res.json());
+}

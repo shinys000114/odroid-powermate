@@ -198,6 +198,11 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-target="#user-settings-pane" data-bs-toggle="tab"
+                                id="user-settings-tab" role="tab" type="button">User Settings
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <button class="nav-link" id="device-settings-tab" data-bs-toggle="tab"
                                 data-bs-target="#device-settings-pane" type="button" role="tab">Device
                         </button>
@@ -330,6 +335,28 @@
                             </button>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         </div>
+                    </div>
+                    <div class="tab-pane fade" id="user-settings-pane" role="tabpanel">
+                        <form id="user-settings-form">
+                            <div class="mb-3">
+                                <label class="form-label" for="new-username">New Username</label>
+                                <input class="form-control" id="new-username" required type="text">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="new-password">New Password</label>
+                                <input class="form-control" id="new-password" required type="password">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="confirm-password">Confirm New Password</label>
+                                <input class="form-control" id="confirm-password" required type="password">
+                            </div>
+                            <div class="d-flex justify-content-end pt-3 border-top mt-3">
+                                <button class="btn btn-primary me-2" id="user-settings-apply-button" type="submit">
+                                    Apply
+                                </button>
+                                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Close</button>
+                            </div>
+                        </form>
                     </div>
                     <div class="tab-pane fade" id="device-settings-pane" role="tabpanel">
                         <div class="mb-3">

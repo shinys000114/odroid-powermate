@@ -80,12 +80,58 @@ static esp_err_t login_handler(httpd_req_t* req)
         return ESP_FAIL;
     }
 
-    const char* username = username_json->valuestring;
-    const char* password = password_json->valuestring;
+    const char* received_username = username_json->valuestring;
+    const char* received_password = password_json->valuestring;
 
-    // TODO: Implement actual credential validation
-    // For now, a simple hardcoded check
-    if (strcmp(username, "admin") == 0 && strcmp(password, "password") == 0)
+    // Get stored username and password from nconfig
+    size_t stored_username_len = 0;
+    size_t stored_password_len = 0;
+    char* stored_username = NULL;
+    char* stored_password = NULL;
+    bool credentials_match = false;
+
+    if (nconfig_get_str_len(PAGE_USERNAME, &stored_username_len) == ESP_OK && stored_username_len > 1)
+    {
+        stored_username = (char*)malloc(stored_username_len);
+        if (stored_username)
+        {
+            if (nconfig_read(PAGE_USERNAME, stored_username, stored_username_len) != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Failed to read stored username from nconfig");
+                free(stored_username);
+                stored_username = NULL;
+            }
+        }
+    }
+
+    if (nconfig_get_str_len(PAGE_PASSWORD, &stored_password_len) == ESP_OK && stored_password_len > 1)
+    {
+        stored_password = (char*)malloc(stored_password_len);
+        if (stored_password)
+        {
+            if (nconfig_read(PAGE_PASSWORD, stored_password, stored_password_len) != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Failed to read stored password from nconfig");
+                free(stored_password);
+                stored_password = NULL;
+            }
+        }
+    }
+
+    if (stored_username && stored_password)
+    {
+        if (strcmp(received_username, stored_username) == 0 && strcmp(received_password, stored_password) == 0)
+        {
+            credentials_match = true;
+        }
+    }
+
+    if (stored_username)
+        free(stored_username);
+    if (stored_password)
+        free(stored_password);
+
+    if (credentials_match)
     {
         char* token = auth_generate_token();
         if (token)

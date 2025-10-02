@@ -55,16 +55,12 @@ const confirmPasswordInput = document.getElementById('confirm-password');
 
 function onWsOpen() {
     updateWebsocketStatus(true);
-    if (term) {
-        term.write('\x1b[32mConnected to WebSocket Server\x1b[0m\r\n');
-    }
+    console.log('Connected to WebSocket Server');
 }
 
 function onWsClose() {
     updateWebsocketStatus(false);
-    if (term) {
-        term.write('\r\n\x1b[31mConnection closed. Reconnecting...\x1b[0m\r\n');
-    }
+    console.warn('Connection closed. Reconnecting...');
     setTimeout(connect, 2000);
 }
 

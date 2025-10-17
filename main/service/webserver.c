@@ -3,6 +3,7 @@
 #include <string.h>
 #include "auth.h"
 #include "cJSON.h"
+#include "dbg_console.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
@@ -193,4 +194,6 @@ void start_webserver(void)
     register_version_endpoint(server);
 
     init_status_monitor();
+
+    initialize_dbg_console();
 }

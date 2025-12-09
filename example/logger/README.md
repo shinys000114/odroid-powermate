@@ -7,6 +7,11 @@ Based on this script, you can monitor power consumption and implement graph plot
 ### Install Python Virtual Environment
 
 ```shell
+git clone https://github.com/hardkernel/odroid-powermate.git
+cd odroid-powermate/example/logger
+```
+
+```shell
 sudo apt install virtualenv
 virtualenv venv
 source venv/bin/activate

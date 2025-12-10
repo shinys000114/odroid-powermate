@@ -162,7 +162,7 @@ def plot_power_data(csv_path, output_path, plot_types, sources):
     fig.suptitle(full_title, fontsize=14)
 
     # Adjust layout to make space for the subtitle
-    plt.tight_layout(rect=[0, 0, 1, 0.93])
+    plt.tight_layout(rect=[0, 0, 1, 0.98])
 
     # --- Save the plot to a file ---
     try:

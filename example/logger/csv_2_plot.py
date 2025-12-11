@@ -83,9 +83,9 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
 
     # --- Plotting Configuration ---
     scale_config = {
-        'power': {'steps': [5, 20, 50, 160]},
-        'voltage': {'steps': [5, 10, 15, 25]},
-        'current': {'steps': [1, 2.5, 5, 10]}
+        'power': {'steps': [5, 7, 10, 20, 50, 160]},
+        'voltage': {'steps': [5, 7, 10, 15, 20, 25]},
+        'current': {'steps': [1, 2.5, 5, 7.5, 10]}
     }
     plot_configs = {
         'power': {'title': 'Power Consumption', 'ylabel': 'Power (W)', 'cols': [f'{s}_power' for s in sources]},

@@ -40,7 +40,7 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
         x_axis_data = df['timestamp']
         if relative_time:
             start_time = df['timestamp'].iloc[0]
-            df['elapsed_seconds'] = (df['timestamp'] - start_time).dt.total_seconds()
+            df.loc[:, 'elapsed_seconds'] = (df['timestamp'] - start_time).dt.total_seconds()
             x_axis_data = df['elapsed_seconds']
             print("X-axis set to relative time (elapsed seconds).")
         else:

@@ -45,7 +45,7 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
         else:
             # --- Timezone Conversion for absolute time ---
             local_tz = gettz()
-            df['timestamp'] = df['timestamp'].dt.tz_convert(local_tz)
+            df.loc[:, 'timestamp'] = df['timestamp'].dt.tz_convert(local_tz)
             print(f"Timestamp converted to local timezone: {local_tz}")
 
     except FileNotFoundError:

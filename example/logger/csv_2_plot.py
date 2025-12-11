@@ -8,21 +8,21 @@ from matplotlib.ticker import MultipleLocator, FuncFormatter
 
 def plot_power_data(csv_path, output_path, plot_types, sources,
                     voltage_y_max=None, current_y_max=None, power_y_max=None,
-                    relative_time=False):
+                    relative_time=False, time_x_line=None, time_x_label=None):
     """
     Reads power data from a CSV file and generates a plot image.
 
     Args:
         csv_path (str): The path to the input CSV file.
         output_path (str): The path to save the output plot image.
-        plot_types (list): A list of strings indicating which plots to generate
-                           (e.g., ['power', 'voltage', 'current']).
-        sources (list): A list of strings indicating which power sources to plot
-                        (e.g., ['vin', 'main', 'usb']).
+        plot_types (list): A list of strings indicating which plots to generate.
+        sources (list): A list of strings indicating which power sources to plot.
         voltage_y_max (float, optional): Maximum value for the voltage plot's Y-axis.
         current_y_max (float, optional): Maximum value for the current plot's Y-axis.
         power_y_max (float, optional): Maximum value for the power plot's Y-axis.
         relative_time (bool): If True, the x-axis will show elapsed time from the start.
+        time_x_line (float, optional): Interval in seconds for x-axis grid lines.
+        time_x_label (float, optional): Interval in seconds for x-axis labels.
     """
     try:
         # Read the CSV file into a pandas DataFrame
@@ -123,7 +123,7 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
         ax.set_ylabel(config['ylabel'])
         ax.legend()
 
-        # --- Grid and Tick Configuration ---
+        # --- Y-Grid and Tick Configuration ---
         y_min, y_max = ax.get_ylim()
         if plot_type == 'current' and y_max <= 2.5: major_interval = 0.5
         elif y_max <= 10: major_interval = 2
@@ -142,7 +142,11 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
             elif y_val % 5 == 0:
                 ax.axhline(y=y_val, color='midnightblue', linestyle='--', linewidth=1.2, zorder=1)
 
+        # --- X-Grid Configuration ---
         ax.xaxis.grid(True, which='major', linestyle='--', linewidth=0.8)
+        if time_x_line is not None:
+            ax.xaxis.grid(True, which='minor', linestyle=':', linewidth=0.6)
+
 
     # --- Formatting the x-axis ---
     last_ax = axes[-1]
@@ -150,16 +154,23 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
         last_ax.set_xlim(x_axis_data.iloc[0], x_axis_data.iloc[-1])
 
     if relative_time:
-        last_ax.xaxis.set_major_locator(plt.MaxNLocator(15))
-        # Optional: Format to M:S if needed
-        # formatter = FuncFormatter(lambda s, x: f'{int(s//60)}:{int(s%60):02d}')
-        # last_ax.xaxis.set_major_formatter(formatter)
         plt.xlabel('Elapsed Time (seconds)')
+        if time_x_label is not None:
+            last_ax.xaxis.set_major_locator(MultipleLocator(time_x_label))
+        else:
+            last_ax.xaxis.set_major_locator(plt.MaxNLocator(15))
+        if time_x_line is not None:
+            last_ax.xaxis.set_minor_locator(MultipleLocator(time_x_line))
     else:
         local_tz = gettz()
-        last_ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S', tz=local_tz))
-        last_ax.xaxis.set_major_locator(plt.MaxNLocator(15))
         plt.xlabel(f'Time ({local_tz.tzname(df["timestamp"].iloc[-1])})')
+        last_ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S', tz=local_tz))
+        if time_x_label is not None:
+            last_ax.xaxis.set_major_locator(mdates.SecondLocator(interval=int(time_x_label)))
+        else:
+            last_ax.xaxis.set_major_locator(plt.MaxNLocator(15))
+        if time_x_line is not None:
+            last_ax.xaxis.set_minor_locator(mdates.SecondLocator(interval=int(time_x_line)))
 
     plt.xticks(rotation=45)
 
@@ -223,6 +234,9 @@ def main():
         action='store_true',
         help="Display the x-axis as elapsed time from the start (in seconds) instead of absolute time."
     )
+    parser.add_argument("--time_x_line", type=float, help="Interval in seconds for x-axis grid lines.")
+    parser.add_argument("--time_x_label", type=float, help="Interval in seconds for x-axis labels.")
+
 
     args = parser.parse_args()
 
@@ -234,7 +248,9 @@ def main():
         voltage_y_max=args.voltage_y_max,
         current_y_max=args.current_y_max,
         power_y_max=args.power_y_max,
-        relative_time=args.relative_time
+        relative_time=args.relative_time,
+        time_x_line=args.time_x_line,
+        time_x_label=args.time_x_label
     )
 
 

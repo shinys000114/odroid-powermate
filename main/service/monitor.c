@@ -54,9 +54,9 @@ ina3221_t ina3221 = {
             .ch1 = true, // channel 1 enable
             .ch2 = true, // channel 2 enable
             .ch3 = true, // channel 3 enable
-            .avg = INA3221_AVG_64, // 64 samples average
-            .vbus = INA3221_CT_2116, // 2ms by channel (bus)
-            .vsht = INA3221_CT_2116, // 2ms by channel (shunt)
+            .avg = INA3221_AVG_16, // 16 samples average
+            .vbus = INA3221_CT_140, // 140us by channel (bus)
+            .vsht = INA3221_CT_1100, // 1.1ms by channel (shunt)
         },
 };
 

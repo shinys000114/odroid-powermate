@@ -298,7 +298,7 @@ void init_status_monitor()
 
 esp_err_t update_sensor_period(int period)
 {
-    if (period < 500 || period > 10000) // 0.5 sec ~ 10 sec
+    if (period < 100 || period > 10000) // 0.1 sec ~ 10 sec
     {
         return ESP_ERR_INVALID_ARG;
     }

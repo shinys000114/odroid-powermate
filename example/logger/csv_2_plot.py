@@ -117,14 +117,15 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
         max_data_value = 0
         for j, col_name in enumerate(config['cols']):
             if col_name in df.columns:
-                # Plot original data
-                ax.plot(x_axis_data, df[col_name], label=f'{channel_labels[j]} (Raw)', color=channel_colors[j], alpha=0.5, zorder=2)
                 max_col_value = df[col_name].max()
                 if max_col_value > max_data_value:
                     max_data_value = max_col_value
 
                 # --- Apply and plot filtered data ---
                 if filter_type and window_size:
+                    # Plot original data (lightly)
+                    ax.plot(x_axis_data, df[col_name], label=f'{channel_labels[j]} (Raw)', color=channel_colors[j], alpha=0.5, zorder=2)
+
                     # Calculate window size in samples
                     if avg_interval_s > 0:
                         window_samples = int(window_size / avg_interval_s)
@@ -135,11 +136,10 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
                         filter_label = ""
 
                         if filter_type == 'savgol':
-                            # Window size for savgol must be odd
                             if window_samples % 2 == 0:
                                 window_samples += 1
-                            if window_samples > 2: # Polyorder must be less than window_length
-                                filtered_data = savgol_filter(df[col_name], window_samples, 2) # polynomial order 2
+                            if window_samples > 2:
+                                filtered_data = savgol_filter(df[col_name], window_samples, 2)
                                 filter_label = "Savitzky-Golay"
                         elif filter_type == 'moving_average':
                             filtered_data = df[col_name].rolling(window=window_samples, center=True).mean()
@@ -148,14 +148,15 @@ def plot_power_data(csv_path, output_path, plot_types, sources,
                             filtered_data = df[col_name].ewm(span=window_samples, adjust=False).mean()
                             filter_label = "Exponential Moving Average"
                         elif filter_type == 'gaussian':
-                            # Sigma is a fraction of the window size
                             sigma = window_samples / 4.0
                             filtered_data = gaussian_filter1d(df[col_name], sigma=sigma)
                             filter_label = "Gaussian"
 
-
                         if filtered_data is not None:
                              ax.plot(x_axis_data, filtered_data, label=f'{channel_labels[j]} ({filter_label})', color=channel_colors[j], linestyle='-', linewidth=1.5, zorder=3)
+                else:
+                    # No filter, plot original data (boldly)
+                    ax.plot(x_axis_data, df[col_name], label=channel_labels[j], color=channel_colors[j], linewidth=1.5, zorder=2)
 
             else:
                 print(f"Warning: Column '{col_name}' not found in CSV. Skipping.")

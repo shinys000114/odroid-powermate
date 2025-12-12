@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +58,17 @@ var (
 				Bold(true)
 
 	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+
+	// Help Window Style
+	helpBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#874BFD")).
+			Padding(1, 2).
+			Background(lipgloss.Color("#1e1e1e"))
+
+	// Settings Style
+	settingItemStyle  = lipgloss.NewStyle().PaddingLeft(2)
+	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(0).Foreground(lipgloss.Color("170")).Bold(true).SetString("> ")
 )
 
 // --- Messages ---
@@ -69,9 +81,24 @@ type initStatusMsg struct {
 	usbOn  bool
 }
 
+type settingsMsg struct {
+	settings DeviceSettings
+}
+
 type errMsg error
 
 type wsMsg *pb.StatusMessage
+
+// --- Data Structures ---
+
+// DeviceSettings maps to GET/POST /api/setting
+type DeviceSettings struct {
+	VinCurrentLimit  float64 `json:"vin_current_limit,omitempty"`
+	MainCurrentLimit float64 `json:"main_current_limit,omitempty"`
+	UsbCurrentLimit  float64 `json:"usb_current_limit,omitempty"`
+	BaudRate         int     `json:"baud_rate,omitempty"`
+	SensorPeriod     int     `json:"sensor_period,omitempty"`
+}
 
 // --- API Client ---
 type LoginRequest struct {
@@ -146,6 +173,62 @@ func fetchControlStatus(baseURL, token string) tea.Cmd {
 	}
 }
 
+func fetchDeviceSettings(baseURL, token string) tea.Cmd {
+	return func() tea.Msg {
+		baseURL = strings.TrimRight(baseURL, "/")
+		req, _ := http.NewRequest("GET", baseURL+"/api/setting", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return errMsg(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			return errMsg(fmt.Errorf("failed to fetch settings: %d", resp.StatusCode))
+		}
+
+		var s DeviceSettings
+		if err := json.NewDecoder(resp.Body).Decode(&s); err != nil {
+			return errMsg(err)
+		}
+		return settingsMsg{settings: s}
+	}
+}
+
+func saveDeviceSetting(baseURL, token string, setting DeviceSettings) tea.Cmd {
+	return func() tea.Msg {
+		baseURL = strings.TrimRight(baseURL, "/")
+		reqBody, _ := json.Marshal(setting)
+		req, _ := http.NewRequest("POST", baseURL+"/api/setting", bytes.NewBuffer(reqBody))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return errMsg(err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			return errMsg(fmt.Errorf("save failed: %d", resp.StatusCode))
+		}
+		// Refresh settings after save
+		return fetchDeviceSettings(baseURL, token)()
+	}
+}
+
+func rebootDevice(baseURL, token string) tea.Cmd {
+	return func() tea.Msg {
+		baseURL = strings.TrimRight(baseURL, "/")
+		req, _ := http.NewRequest("POST", baseURL+"/api/reboot", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		httpClient.Do(req) // Don't wait for response too strictly as device reboots
+		return nil
+	}
+}
+
 func sendControl(baseURL, token string, payload ControlRequest) tea.Cmd {
 	return func() tea.Msg {
 		baseURL = strings.TrimRight(baseURL, "/")
@@ -187,7 +270,6 @@ func connectWebSocket(baseURL, token string, sendChan <-chan []byte) tea.Cmd {
 			return errMsg(err)
 		}
 
-		// Writer
 		go func() {
 			for data := range sendChan {
 				err := c.WriteMessage(websocket.BinaryMessage, data)
@@ -198,7 +280,6 @@ func connectWebSocket(baseURL, token string, sendChan <-chan []byte) tea.Cmd {
 			c.Close()
 		}()
 
-		// Reader
 		go func() {
 			defer c.Close()
 			for {
@@ -224,6 +305,17 @@ type state int
 const (
 	stateLogin state = iota
 	stateDashboard
+	stateSettings
+)
+
+// Setting Item Types
+const (
+	SetVinLimit = iota
+	SetMainLimit
+	SetUsbLimit
+	SetBaudRate
+	SetPeriod
+	SetReboot
 )
 
 type model struct {
@@ -236,21 +328,26 @@ type model struct {
 
 	wsSend chan []byte
 
+	// Login
 	serverInput   textinput.Model
 	usernameInput textinput.Model
 	passwordInput textinput.Model
 	focusIndex    int
 
+	// Dashboard
 	sensorData      *pb.SensorData
 	wifiStatus      *pb.WifiStatus
 	swStatus        *pb.LoadSwStatus
-
-	// Terminal Emulator (vt10x)
 	term            vt10x.Terminal
 	logViewport     viewport.Model
-
 	awaitingCommand bool
 	lastStatusMsg   string
+
+	// Settings
+	deviceSettings DeviceSettings
+	settingCursor  int
+	settingEditing bool            // True if currently typing a value
+	settingInput   textinput.Model // Shared input for editing values
 }
 
 func initialModel() model {
@@ -266,12 +363,15 @@ func initialModel() model {
 	p.Placeholder = "Password"
 	p.EchoMode = textinput.EchoPassword
 
-	// 기본 80x24 초기화
 	vp := viewport.New(80, 24)
 	vp.SetContent("Waiting for data...")
 
+	// vt10x 초기화 (Writer는 필요 없으므로 Discard)
 	term := vt10x.New(vt10x.WithWriter(io.Discard))
 	term.Resize(80, 24)
+
+	si := textinput.New()
+	si.CharLimit = 10
 
 	return model{
 		state:         stateLogin,
@@ -282,6 +382,7 @@ func initialModel() model {
 		term:          term,
 		swStatus:      &pb.LoadSwStatus{Main: false, Usb: false},
 		wsSend:        make(chan []byte, 100),
+		settingInput:  si,
 	}
 }
 
@@ -289,21 +390,16 @@ func (m model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-// renderVt10x: vt10x 상태를 ANSI 문자열로 직접 변환 (최적화됨)
 func (m model) renderVt10x() string {
 	var sb strings.Builder
-	// 버퍼를 미리 할당 (가로 * 세로 * 문자당 평균 바이트 수 추정)
 	rows := m.logViewport.Height
 	cols := m.logViewport.Width
 	sb.Grow(rows * cols * 4)
 
 	cursor := m.term.Cursor()
-
-	// 현재 상태 추적용 변수 (중복 ANSI 코드 제거)
 	curFG := vt10x.DefaultFG
 	curBG := vt10x.DefaultBG
 
-	// 시작 시 스타일 초기화
 	sb.WriteString("\x1b[0m")
 
 	for y := 0; y < rows; y++ {
@@ -313,39 +409,29 @@ func (m model) renderVt10x() string {
 			fg := cell.FG
 			bg := cell.BG
 			char := cell.Char
-
-			// 커서 위치 판별
 			isCursor := (x == cursor.X && y == cursor.Y)
 
-			// 상태가 변경되었을 때만 ANSI 코드 출력 (커서 위치 포함)
 			if fg != curFG || bg != curBG || isCursor {
-				sb.WriteString("\x1b[0m") // Reset
-
-				// 커서 위치면 반전(Reverse) 적용
+				sb.WriteString("\x1b[0m")
 				if isCursor {
 					sb.WriteString("\x1b[7m")
 				}
-
 				if fg != vt10x.DefaultFG {
 					fmt.Fprintf(&sb, "\x1b[38;5;%dm", fg)
 				}
 				if bg != vt10x.DefaultBG {
 					fmt.Fprintf(&sb, "\x1b[48;5;%dm", bg)
 				}
-
 				curFG = fg
 				curBG = bg
 
-				// 커서가 지나간 후 다음 글자에서 스타일이 리셋되어야 하므로 상태 강제 변경
 				if isCursor {
 					curFG = vt10x.Color(65535)
 					curBG = vt10x.Color(65535)
 				}
 			}
-
 			sb.WriteRune(char)
 		}
-		// 줄바꿈 전 스타일 초기화
 		if y < rows-1 {
 			sb.WriteString("\x1b[0m\n")
 			curFG = vt10x.DefaultFG
@@ -360,23 +446,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	// --- Mouse Scroll Handling ---
-	case tea.MouseMsg:
-		if m.state == stateDashboard {
-			var data []byte
-			switch msg.Type {
-			case tea.MouseWheelUp:
-				data = []byte("\x1b[A") // Arrow Up
-			case tea.MouseWheelDown:
-				data = []byte("\x1b[B") // Arrow Down
-			}
-			if len(data) > 0 {
-				m.wsSend <- data
-			}
-		}
-
 	case tea.KeyMsg:
-		// LOGIN STATE
 		if m.state == stateLogin {
 			if msg.Type == tea.KeyCtrlC {
 				return m, tea.Quit
@@ -417,24 +487,92 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, tea.Batch(cmds...)
 			}
-		}
+		} else if m.state == stateSettings {
+			// SETTINGS STATE
+			if m.settingEditing {
+				switch msg.Type {
+				case tea.KeyEnter:
+					// Save value
+					m.settingEditing = false
+					val := m.settingInput.Value()
+					var cmd tea.Cmd
 
-		// DASHBOARD STATE
-		if m.state == stateDashboard {
+					switch m.settingCursor {
+					case SetVinLimit:
+						v, _ := strconv.ParseFloat(val, 64)
+						cmd = saveDeviceSetting(m.baseURL, m.token, DeviceSettings{VinCurrentLimit: v})
+					case SetMainLimit:
+						v, _ := strconv.ParseFloat(val, 64)
+						cmd = saveDeviceSetting(m.baseURL, m.token, DeviceSettings{MainCurrentLimit: v})
+					case SetUsbLimit:
+						v, _ := strconv.ParseFloat(val, 64)
+						cmd = saveDeviceSetting(m.baseURL, m.token, DeviceSettings{UsbCurrentLimit: v})
+					case SetBaudRate:
+						v, _ := strconv.Atoi(val)
+						cmd = saveDeviceSetting(m.baseURL, m.token, DeviceSettings{BaudRate: v})
+					case SetPeriod:
+						v, _ := strconv.Atoi(val)
+						cmd = saveDeviceSetting(m.baseURL, m.token, DeviceSettings{SensorPeriod: v})
+					}
+					return m, cmd
+				case tea.KeyEsc:
+					m.settingEditing = false
+					return m, nil
+				default:
+					m.settingInput, cmd = m.settingInput.Update(msg)
+					return m, cmd
+				}
+			} else {
+				// Navigation
+				switch msg.String() {
+				case "q", "esc":
+					m.state = stateDashboard
+					return m, nil
+				case "up":
+					if m.settingCursor > 0 {
+						m.settingCursor--
+					}
+				case "down":
+					if m.settingCursor < 5 { // items count - 1
+						m.settingCursor++
+					}
+				case "enter":
+					if m.settingCursor == SetReboot {
+						return m, rebootDevice(m.baseURL, m.token)
+					}
+					// Start editing
+					m.settingEditing = true
+					m.settingInput.Focus()
+					// Pre-fill value
+					switch m.settingCursor {
+					case SetVinLimit:
+						m.settingInput.SetValue(fmt.Sprintf("%.1f", m.deviceSettings.VinCurrentLimit))
+					case SetMainLimit:
+						m.settingInput.SetValue(fmt.Sprintf("%.1f", m.deviceSettings.MainCurrentLimit))
+					case SetUsbLimit:
+						m.settingInput.SetValue(fmt.Sprintf("%.1f", m.deviceSettings.UsbCurrentLimit))
+					case SetBaudRate:
+						m.settingInput.SetValue(fmt.Sprintf("%d", m.deviceSettings.BaudRate))
+					case SetPeriod:
+						m.settingInput.SetValue(fmt.Sprintf("%d", m.deviceSettings.SensorPeriod))
+					}
+					return m, textinput.Blink
+				}
+			}
+		} else if m.state == stateDashboard {
+			// DASHBOARD STATE
 			keyStr := msg.String()
 
-			// 1. Ctrl+A Command Mode Trigger
 			if keyStr == "ctrl+a" {
 				m.awaitingCommand = !m.awaitingCommand
 				if m.awaitingCommand {
-					m.lastStatusMsg = "Command Mode: Press key (m:Main, u:USB, p:Power, r:Reset, q:Quit, a:Ctrl+A)"
+					m.lastStatusMsg = "Press '?' for help"
 				} else {
 					m.lastStatusMsg = ""
 				}
 				return m, nil
 			}
 
-			// 2. Handle Command Mode Local Keys
 			if m.awaitingCommand {
 				m.awaitingCommand = false
 				m.lastStatusMsg = ""
@@ -459,20 +597,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					t := true
 					payload := ControlRequest{PowerTrigger: &t}
 					return m, sendControl(m.baseURL, m.token, payload)
-				case "a": // 1. Send literal Ctrl+A
-					m.wsSend <- []byte{1} // 0x01
+				case "a":
+					m.wsSend <- []byte{1}
 					return m, nil
-				case "q":
+				case "o": // Open Settings
+					m.state = stateSettings
+					return m, fetchDeviceSettings(m.baseURL, m.token)
+				case "x": // Quit Program
 					return m, tea.Quit
+				case "q": // Close Command Window
+					m.lastStatusMsg = "Command mode closed."
+					return m, nil
 				default:
 					m.lastStatusMsg = "Command cancelled."
 					return m, nil
 				}
 			}
 
-			// 3. Send ALL other inputs to Device
+			// Send to UART
 			var data []byte
-
 			switch msg.Type {
 			case tea.KeyRunes:
 				data = []byte(string(msg.Runes))
@@ -528,11 +671,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					data = []byte(string(msg.Runes))
 				}
 			}
-
 			if len(data) > 0 {
 				m.wsSend <- data
 			}
 			return m, nil
+		}
+
+	case tea.MouseMsg:
+		if m.state == stateDashboard {
+			var data []byte
+			switch msg.Type {
+			case tea.MouseWheelUp:
+				data = []byte("\x1b[A")
+			case tea.MouseWheelDown:
+				data = []byte("\x1b[B")
+			}
+			if len(data) > 0 {
+				m.wsSend <- data
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -541,12 +697,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		headerHeight := 10
 		termW := msg.Width - 2
 		termH := msg.Height - headerHeight
-		if termH < 5 { termH = 5 }
+		if termH < 5 {
+			termH = 5
+		}
 
 		m.logViewport.Width = termW
 		m.logViewport.Height = termH
-
-		// 터미널 에뮬레이터 리사이즈
 		m.term.Resize(termW, termH)
 
 	case sessionMsg:
@@ -556,6 +712,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			connectWebSocket(m.baseURL, m.token, m.wsSend),
 			fetchControlStatus(m.baseURL, m.token),
 		)
+
+	case settingsMsg:
+		m.deviceSettings = msg.settings
+		return m, nil
 
 	case initStatusMsg:
 		m.swStatus.Main = msg.mainOn
@@ -575,8 +735,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case *pb.StatusMessage_SwStatus:
 			m.swStatus = payload.SwStatus
 		case *pb.StatusMessage_UartData:
-			incoming := payload.UartData.Data
-			m.term.Write(incoming)
+			m.term.Write(payload.UartData.Data)
 			m.logViewport.SetContent(m.renderVt10x())
 		}
 	}
@@ -591,6 +750,8 @@ func (m model) View() string {
 
 	if m.state == stateLogin {
 		return m.loginView()
+	} else if m.state == stateSettings {
+		return m.settingsView()
 	}
 
 	return m.dashboardView()
@@ -614,7 +775,45 @@ func (m model) loginView() string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, b.String())
 }
 
+func (m model) settingsView() string {
+	var s strings.Builder
+	s.WriteString(titleStyle.Render(" Device Settings ") + "\n\n")
+
+	items := []struct {
+		label string
+		value string
+	}{
+		{"VIN Current Limit (A)", fmt.Sprintf("%.1f", m.deviceSettings.VinCurrentLimit)},
+		{"Main Current Limit (A)", fmt.Sprintf("%.1f", m.deviceSettings.MainCurrentLimit)},
+		{"USB Current Limit (A)", fmt.Sprintf("%.1f", m.deviceSettings.UsbCurrentLimit)},
+		{"UART Baud Rate", fmt.Sprintf("%d", m.deviceSettings.BaudRate)},
+		{"Sensor Period (ms)", fmt.Sprintf("%d", m.deviceSettings.SensorPeriod)},
+		{"[ Reboot Device ]", ""},
+	}
+
+	for i, item := range items {
+		label := item.label
+		value := item.value
+
+		if i == m.settingCursor {
+			s.WriteString(selectedItemStyle.Render(label))
+			if m.settingEditing {
+				s.WriteString(": " + m.settingInput.View())
+			} else {
+				s.WriteString(": " + value)
+			}
+		} else {
+			s.WriteString(settingItemStyle.Render(label + ": " + value))
+		}
+		s.WriteString("\n")
+	}
+
+	s.WriteString("\n(Enter to edit, Esc/q to back)")
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, s.String())
+}
+
 func (m model) dashboardView() string {
+	// Base Dashboard
 	header := titleStyle.Render(" ODROID Power Mate ")
 	if m.wifiStatus != nil {
 		ssid := m.wifiStatus.Ssid
@@ -629,7 +828,7 @@ func (m model) dashboardView() string {
 	var statusText string
 	var statusStyle lipgloss.Style
 	if m.awaitingCommand {
-		statusText = " COMMAND MODE (Ctrl-A) >> Press: M(Main) U(USB) P(Power) R(Reset) Q(Quit) "
+		statusText = " COMMAND MODE (Ctrl-A) >> Press: M(Main) U(USB) P(Power) R(Reset) O(Settings) A(Ctrl+A) Q(Close) X(Quit)"
 		statusStyle = commandModeStyle
 	} else {
 		statusText = " TERMINAL MODE >> Press Ctrl-A for Commands "
@@ -676,7 +875,29 @@ func (m model) dashboardView() string {
 		Height(m.logViewport.Height).
 		Render(m.logViewport.View())
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, topSection, bar, termView)
+	baseView := lipgloss.JoinVertical(lipgloss.Left, header, topSection, bar, termView)
+
+	// --- Help Overlay ---
+	if m.awaitingCommand {
+		helpText := `
+COMMAND MODE (Ctrl+A)
+
+  m : Toggle Main Power
+  u : Toggle USB Power
+  p : Power Trigger (Long Press)
+  r : Reset Trigger
+  o : Open Settings
+  a : Send 'Ctrl+A'
+  q : Close Command Window
+  x : Quit Program
+		`
+		helpWindow := helpBoxStyle.Render(helpText)
+
+		// Overlay help window on top of base view using lipgloss.Place
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpWindow, lipgloss.WithWhitespaceChars(" "), lipgloss.WithWhitespaceForeground(lipgloss.NoColor{}))
+	}
+
+	return baseView
 }
 
 func main() {

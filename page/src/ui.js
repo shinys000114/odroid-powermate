@@ -184,7 +184,7 @@ export async function connectToWifi() {
 
     try {
         const result = await api.postWifiConnect(ssid, password);
-        if (result.status === 'connection_initiated') {
+        if (result.status === 'ok' || result.wifi_status === 'connecting') {
             wifiModal.hide();
             setTimeout(() => {
                 alert(`Connection to "${ssid}" initiated. The device will try to reconnect. Please check the Wi-Fi status icon.`);

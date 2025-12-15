@@ -202,7 +202,7 @@ async function handleUserSettingsSubmit(event) {
 
     try {
         const response = await api.updateUserSettings(newUsername, newPassword);
-        if (response && response.status === 'user_credentials_updated') {
+        if (response && (response.status === 'ok' || response.auth_status === 'updated')) {
             alert('Username and password updated successfully. Please log in again with new credentials.');
             handleLogout(); // Force logout to re-authenticate with new credentials
         } else {

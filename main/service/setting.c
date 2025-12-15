@@ -187,6 +187,10 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
     cJSON* new_username_item = cJSON_GetObjectItem(root, "new_username");
     cJSON* new_password_item = cJSON_GetObjectItem(root, "new_password");
 
+    bool action_taken = false;
+
+    cJSON* resp_root = cJSON_CreateObject();
+
     if (mode_item && cJSON_IsString(mode_item))
     {
         const char* mode = mode_item->valuestring;
@@ -203,12 +207,6 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
                 {
                     nconfig_write(AP_SSID, ap_ssid_item->valuestring);
                 }
-                else
-                {
-                    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "AP SSID required for APSTA mode");
-                    cJSON_Delete(root);
-                    return ESP_FAIL;
-                }
 
                 if (ap_pass_item && cJSON_IsString(ap_pass_item))
                 {
@@ -216,19 +214,17 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
                 }
                 else
                 {
-                    nconfig_delete(AP_PASSWORD); // Open network
+                    nconfig_delete(AP_PASSWORD);
                 }
             }
 
             wifi_switch_mode(mode);
-            httpd_resp_sendstr(req, "{\"status\":\"mode_switch_initiated\"}");
-        }
-        else
-        {
-            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid mode");
+            cJSON_AddStringToObject(resp_root, "mode_status", "initiated");
+            action_taken = true;
         }
     }
-    else if (net_type_item && cJSON_IsString(net_type_item))
+
+    if (net_type_item && cJSON_IsString(net_type_item))
     {
         const char* type = net_type_item->valuestring;
         ESP_LOGI(TAG, "Received network config: %s", type);
@@ -260,50 +256,50 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
                     nconfig_delete(NETIF_DNS2);
 
                 wifi_use_static(ip, gw, sn, d1, d2);
-                httpd_resp_sendstr(req, "{\"status\":\"static_config_applied\"}");
-            }
-            else
-            {
-                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing static IP fields");
+                cJSON_AddStringToObject(resp_root, "net_status", "static_applied");
+                action_taken = true;
             }
         }
         else if (strcmp(type, "dhcp") == 0)
         {
             nconfig_write(NETIF_TYPE, "dhcp");
             wifi_use_dhcp();
-            httpd_resp_sendstr(req, "{\"status\":\"dhcp_config_applied\"}");
+            cJSON_AddStringToObject(resp_root, "net_status", "dhcp_applied");
+            action_taken = true;
         }
     }
-    else if (ssid_item && cJSON_IsString(ssid_item))
+
+    if (ssid_item && cJSON_IsString(ssid_item))
     {
         cJSON* pass_item = cJSON_GetObjectItem(root, "password");
         if (cJSON_IsString(pass_item))
         {
-            httpd_resp_sendstr(req, "{\"status\":\"connection_initiated\"}");
-
             wifi_sta_set_ap(ssid_item->valuestring, pass_item->valuestring);
-        }
-        else
-        {
-            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Password required");
+            cJSON_AddStringToObject(resp_root, "wifi_status", "connecting");
+            action_taken = true;
         }
     }
-    else if (baud_item && cJSON_IsString(baud_item))
+
+    if (baud_item && cJSON_IsString(baud_item))
     {
         const char* baudrate = baud_item->valuestring;
         ESP_LOGI(TAG, "Received baudrate set request: %s", baudrate);
         nconfig_write(UART_BAUD_RATE, baudrate);
         change_baud_rate(strtol(baudrate, NULL, 10));
-        httpd_resp_sendstr(req, "{\"status\":\"baudrate_updated\"}");
+        cJSON_AddStringToObject(resp_root, "baudrate_status", "updated");
+        action_taken = true;
     }
-    else if (period_item && cJSON_IsString(period_item))
+
+    if (period_item && cJSON_IsString(period_item))
     {
         const char* period_str = period_item->valuestring;
         ESP_LOGI(TAG, "Received period set request: %s", period_str);
         update_sensor_period(strtol(period_str, NULL, 10));
-        httpd_resp_sendstr(req, "{\"status\":\"period_updated\"}");
+        cJSON_AddStringToObject(resp_root, "period_status", "updated");
+        action_taken = true;
     }
-    else if (vin_climit_item || main_climit_item || usb_climit_item)
+
+    if (vin_climit_item || main_climit_item || usb_climit_item)
     {
         char num_buf[10];
         if (vin_climit_item && cJSON_IsNumber(vin_climit_item))
@@ -336,10 +332,12 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
                 climit_set_usb(val);
             }
         }
-        httpd_resp_sendstr(req, "{\"status\":\"current_limit_updated\"}");
+        cJSON_AddStringToObject(resp_root, "climit_status", "updated");
+        action_taken = true;
     }
-    else if (new_username_item && cJSON_IsString(new_username_item) && new_password_item &&
-             cJSON_IsString(new_password_item))
+
+    if (new_username_item && cJSON_IsString(new_username_item) && new_password_item &&
+        cJSON_IsString(new_password_item))
     {
         const char* new_username = new_username_item->valuestring;
         const char* new_password = new_password_item->valuestring;
@@ -347,13 +345,23 @@ static esp_err_t setting_post_handler(httpd_req_t* req)
         nconfig_write(PAGE_USERNAME, new_username);
         nconfig_write(PAGE_PASSWORD, new_password);
         ESP_LOGI(TAG, "Username and password updated successfully.");
-        httpd_resp_sendstr(req, "{\"status\":\"user_credentials_updated\"}");
+        cJSON_AddStringToObject(resp_root, "auth_status", "updated");
+        action_taken = true;
+    }
+
+    if (action_taken)
+    {
+        cJSON_AddStringToObject(resp_root, "status", "ok");
+        char* resp_str = cJSON_PrintUnformatted(resp_root);
+        httpd_resp_sendstr(req, resp_str);
+        free(resp_str);
     }
     else
     {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid payload");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid payload or no known parameters");
     }
 
+    cJSON_Delete(resp_root);
     cJSON_Delete(root);
     return ESP_OK;
 }

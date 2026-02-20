@@ -11,6 +11,7 @@
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_wifi_types_generic.h"
+#include "event.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h" // Added for FreeRTOS tasks
 #include "ina3221.h"
@@ -159,9 +160,23 @@ static void shutdown_load_sw_task(void* pvParameters)
 
         ESP_LOGW(TAG, "critical interrupt triggered (via task)");
         gpio_set_level(PM_EXPANDER_RST, 0);
+        ina3221_get_status(&ina3221);
         vTaskDelay(100 / portTICK_PERIOD_MS);
         gpio_set_level(PM_EXPANDER_RST, 1);
         config_sw();
+
+        uint16_t cf = ina3221.mask.cf; // order : channel1:channel2:channel3
+
+        push_eventf(EV_CRITICAL, "load switch disabled");
+
+        if (cf & BIT0) // CH3 VIN
+            push_eventf(EV_CRITICAL, "critical fault detected: VIN");
+        else if (cf & BIT1) // CH2 VOUT
+            push_eventf(EV_CRITICAL, "critical fault detected: MAIN");
+        else if (cf & BIT2) // CH1 USB
+            push_eventf(EV_CRITICAL, "critical fault detected: USB");
+        else
+            push_eventf(EV_CRITICAL, "critical fault detected: BTN");
 
         // Start a 5-second timer to check for long press
         esp_timer_start_once(long_press_timer, 5000000);
@@ -230,6 +245,7 @@ void init_status_monitor()
 {
     gpio_init();
     ESP_ERROR_CHECK(ina3221_init_desc(&ina3221, 0x40, 0, PM_SDA, PM_SCL));
+    ESP_ERROR_CHECK(ina3221_sync(&ina3221));
 
     double lim;
     char buf[10];

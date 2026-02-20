@@ -14,6 +14,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "event.h"
 #include "pb.h"
 #include "pb_encode.h"
 #include "pca9557.h"
@@ -128,6 +129,7 @@ void trig_power()
     }
     pca9557_set_level(&pca, GPIO_PWR, 0);
     xSemaphoreGive(expander_mutex);
+    push_event(EV_INFO, "power triggered");
     esp_timer_stop(power_trigger_timer);
     esp_timer_start_once(power_trigger_timer, POWER_DELAY);
 }
@@ -142,6 +144,7 @@ void trig_reset()
     }
     pca9557_set_level(&pca, GPIO_RST, 0);
     xSemaphoreGive(expander_mutex);
+    push_event(EV_INFO, "reset triggered");
     esp_timer_stop(reset_trigger_timer);
     esp_timer_start_once(reset_trigger_timer, RESET_DELAY);
 }
@@ -159,6 +162,7 @@ void set_main_load_switch(bool on)
     pca9557_set_level(&pca, GPIO_MAIN, on);
     load_switch_12v_status = on;
     xSemaphoreGive(expander_mutex);
+    push_eventf(EV_INFO, "main load switch set: %s", on ? "on" : "off");
     send_sw_status_message();
 }
 
@@ -175,6 +179,7 @@ void set_usb_load_switch(bool on)
     pca9557_set_level(&pca, GPIO_USB, on);
     load_switch_5v_status = on;
     xSemaphoreGive(expander_mutex);
+    push_eventf(EV_INFO, "usb load switch set: %s", on ? "on" : "off");
     send_sw_status_message();
 }
 

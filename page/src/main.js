@@ -128,6 +128,34 @@ function onWsMessage(event) {
                 }
                 break;
 
+            case 'eventData':
+                if (decodedMessage.eventData) {
+                    const level = decodedMessage.eventData.level;
+                    const msg = decodedMessage.eventData.message;
+                    const timestampMs = decodedMessage.eventData.timestampMs;
+                    const uptimeMs = decodedMessage.eventData.uptimeMs;
+
+                    const dateStr = timestampMs ? new Date(Number(timestampMs)).toLocaleString() : 'Unknown Time';
+                    const uptimeStr = uptimeMs ? (Number(uptimeMs) / 1000).toFixed(0) : '0';
+
+                    const prefix = `[PowerMate] (${dateStr}) (ut: ${uptimeStr}s)`;
+
+                    switch (level) {
+                        case 0: // EV_INFO
+                            console.info(`${prefix} ${msg}`);
+                            break;
+                        case 1: // EV_WARNING
+                            console.warn(`${prefix} ${msg}`);
+                            break;
+                        case 2: // EV_CRITICAL
+                        case 3: // EV_FATAL
+                            console.error(`${prefix} ${msg}`);
+                            break;
+                        default:
+                            console.log(`${prefix} ${msg}`);
+                    }
+                }
+                break;
             default:
                 if (payloadType !== undefined) {
                     console.warn('Received message with unknown or empty payload type:', payloadType);

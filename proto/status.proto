@@ -24,6 +24,13 @@ message WifiStatus {
   string ip_address = 4;
 }
 
+message EventData {
+  int32 level = 1;  // 0 = info, 1 = warning, 2 = critical, 3 = fatal
+  uint64 timestamp_ms = 2;
+  uint64 uptime_ms = 3;
+  string message = 4;
+}
+
 // Contains raw UART data
 message UartData {
   bytes data = 1;
@@ -42,5 +49,6 @@ message StatusMessage {
     WifiStatus wifi_status = 2;
      LoadSwStatus sw_status = 3;
      UartData uart_data = 4;
+     EventData event_data = 5;
   }
 }

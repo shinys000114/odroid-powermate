@@ -37,6 +37,13 @@ typedef struct _WifiStatus {
     pb_callback_t ip_address;
 } WifiStatus;
 
+typedef struct _EventData {
+    int32_t level; /* 0 = info, 1 = warning, 2 = critical, 3 = fatal */
+    uint64_t timestamp_ms;
+    uint64_t uptime_ms;
+    pb_callback_t message;
+} EventData;
+
 /* Contains raw UART data */
 typedef struct _UartData {
     pb_callback_t data;
@@ -56,6 +63,7 @@ typedef struct _StatusMessage {
         WifiStatus wifi_status;
         LoadSwStatus sw_status;
         UartData uart_data;
+        EventData event_data;
     } payload;
 } StatusMessage;
 
@@ -68,12 +76,14 @@ extern "C" {
 #define SensorChannelData_init_default           {0, 0, 0}
 #define SensorData_init_default                  {false, SensorChannelData_init_default, false, SensorChannelData_init_default, false, SensorChannelData_init_default, 0, 0}
 #define WifiStatus_init_default                  {0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define EventData_init_default                   {0, 0, 0, {{NULL}, NULL}}
 #define UartData_init_default                    {{{NULL}, NULL}}
 #define LoadSwStatus_init_default                {0, 0}
 #define StatusMessage_init_default               {0, {SensorData_init_default}}
 #define SensorChannelData_init_zero              {0, 0, 0}
 #define SensorData_init_zero                     {false, SensorChannelData_init_zero, false, SensorChannelData_init_zero, false, SensorChannelData_init_zero, 0, 0}
 #define WifiStatus_init_zero                     {0, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define EventData_init_zero                      {0, 0, 0, {{NULL}, NULL}}
 #define UartData_init_zero                       {{{NULL}, NULL}}
 #define LoadSwStatus_init_zero                   {0, 0}
 #define StatusMessage_init_zero                  {0, {SensorData_init_zero}}
@@ -91,6 +101,10 @@ extern "C" {
 #define WifiStatus_ssid_tag                      2
 #define WifiStatus_rssi_tag                      3
 #define WifiStatus_ip_address_tag                4
+#define EventData_level_tag                      1
+#define EventData_timestamp_ms_tag               2
+#define EventData_uptime_ms_tag                  3
+#define EventData_message_tag                    4
 #define UartData_data_tag                        1
 #define LoadSwStatus_main_tag                    1
 #define LoadSwStatus_usb_tag                     2
@@ -98,6 +112,7 @@ extern "C" {
 #define StatusMessage_wifi_status_tag            2
 #define StatusMessage_sw_status_tag              3
 #define StatusMessage_uart_data_tag              4
+#define StatusMessage_event_data_tag             5
 
 /* Struct field encoding specification for nanopb */
 #define SensorChannelData_FIELDLIST(X, a) \
@@ -127,6 +142,14 @@ X(a, CALLBACK, SINGULAR, STRING,   ip_address,        4)
 #define WifiStatus_CALLBACK pb_default_field_callback
 #define WifiStatus_DEFAULT NULL
 
+#define EventData_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, INT32,    level,             1) \
+X(a, STATIC,   SINGULAR, UINT64,   timestamp_ms,      2) \
+X(a, STATIC,   SINGULAR, UINT64,   uptime_ms,         3) \
+X(a, CALLBACK, SINGULAR, STRING,   message,           4)
+#define EventData_CALLBACK pb_default_field_callback
+#define EventData_DEFAULT NULL
+
 #define UartData_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, BYTES,    data,              1)
 #define UartData_CALLBACK pb_default_field_callback
@@ -142,17 +165,20 @@ X(a, STATIC,   SINGULAR, BOOL,     usb,               2)
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,sensor_data,payload.sensor_data),   1) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,wifi_status,payload.wifi_status),   2) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,sw_status,payload.sw_status),   3) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (payload,uart_data,payload.uart_data),   4)
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,uart_data,payload.uart_data),   4) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,event_data,payload.event_data),   5)
 #define StatusMessage_CALLBACK NULL
 #define StatusMessage_DEFAULT NULL
 #define StatusMessage_payload_sensor_data_MSGTYPE SensorData
 #define StatusMessage_payload_wifi_status_MSGTYPE WifiStatus
 #define StatusMessage_payload_sw_status_MSGTYPE LoadSwStatus
 #define StatusMessage_payload_uart_data_MSGTYPE UartData
+#define StatusMessage_payload_event_data_MSGTYPE EventData
 
 extern const pb_msgdesc_t SensorChannelData_msg;
 extern const pb_msgdesc_t SensorData_msg;
 extern const pb_msgdesc_t WifiStatus_msg;
+extern const pb_msgdesc_t EventData_msg;
 extern const pb_msgdesc_t UartData_msg;
 extern const pb_msgdesc_t LoadSwStatus_msg;
 extern const pb_msgdesc_t StatusMessage_msg;
@@ -161,12 +187,14 @@ extern const pb_msgdesc_t StatusMessage_msg;
 #define SensorChannelData_fields &SensorChannelData_msg
 #define SensorData_fields &SensorData_msg
 #define WifiStatus_fields &WifiStatus_msg
+#define EventData_fields &EventData_msg
 #define UartData_fields &UartData_msg
 #define LoadSwStatus_fields &LoadSwStatus_msg
 #define StatusMessage_fields &StatusMessage_msg
 
 /* Maximum encoded size of messages (where known) */
 /* WifiStatus_size depends on runtime parameters */
+/* EventData_size depends on runtime parameters */
 /* UartData_size depends on runtime parameters */
 /* StatusMessage_size depends on runtime parameters */
 #define LoadSwStatus_size                        4

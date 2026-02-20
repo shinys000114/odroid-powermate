@@ -15,6 +15,9 @@ PB_BIND(SensorData, SensorData, AUTO)
 PB_BIND(WifiStatus, WifiStatus, AUTO)
 
 
+PB_BIND(EventData, EventData, AUTO)
+
+
 PB_BIND(UartData, UartData, AUTO)
 
 

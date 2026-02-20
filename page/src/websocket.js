@@ -9,7 +9,8 @@
 export let websocket;
 
 // The WebSocket server address, derived from the current page's host (hostname + port).
-const baseGateway = `ws://${window.location.host}/ws`;
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const baseGateway = `${protocol}//${window.location.host}/ws`;
 
 // Heartbeat related variables
 let pingIntervalId = null;

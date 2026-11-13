@@ -9,6 +9,7 @@
 
 #include <system.h>
 
+#include <esp_app_desc.h>
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <string.h>
@@ -100,7 +101,7 @@ static esp_err_t version_get_handler(httpd_req_t* req)
 
     httpd_resp_set_type(req, "application/json");
     char buf[100];
-    sprintf(buf, "{\"version\": \"%s-%s\"}", VERSION_TAG, VERSION_HASH);
+    snprintf(buf, sizeof(buf), "{\"version\": \"%s\"}", esp_app_get_description()->version);
     httpd_resp_send(req, buf, strlen(buf));
     return ESP_OK;
 }

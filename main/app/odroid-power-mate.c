@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "i2cdev.h"
 #include "indicator.h"
+#include "esp_app_desc.h"
 #include "nconfig.h"
 #include "nvs_flash.h"
 #include "system.h"
@@ -21,7 +22,7 @@
 void app_main(void)
 {
     printf("\n\n== ODROID POWER-MATE ===\n");
-    printf("Version: %s-%s\n\n", VERSION_TAG, VERSION_HASH);
+    printf("Version: %s\n\n", esp_app_get_description()->version);
 
     ESP_ERROR_CHECK(i2cdev_init());
     init_led();

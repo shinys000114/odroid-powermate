@@ -5,23 +5,10 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
-execute_process(
-        COMMAND git rev-parse --short HEAD
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_HASH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-execute_process(
-        COMMAND git describe --tags --abbrev=0
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_TAG
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-set(PROJECT_VER "${GIT_TAG}-${GIT_HASH}")
-add_compile_definitions(VERSION_HASH="${GIT_HASH}")
-add_compile_definitions(VERSION_TAG="${GIT_TAG}")
+# PROJECT_VER becomes the firmware version (esp_app_desc, /api/version, the merged
+# bin name). It follows git: commits and tags trigger a reconfigure by themselves.
+include(cmake/version.cmake)
+powermate_git_version(PROJECT_VER)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(odroid-power-mate)

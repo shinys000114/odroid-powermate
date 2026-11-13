@@ -4,3 +4,4 @@ dependencies:
   esp-idf-lib/pca9557: ^1.0.7
   nikas-belogolov/nanopb: ^1.0.0
   espressif/cjson: ^1.7.19~2
+  espressif/mdns: ^1.15.1

@@ -43,6 +43,7 @@ void app_main(void)
     ESP_ERROR_CHECK(init_nconfig());
 
     wifi_init();
+    discovery_start();
     wifi_connect();
     sync_time();
 

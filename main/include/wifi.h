@@ -20,6 +20,12 @@
  */
 void wifi_init(void);
 
+/**
+ * @brief Advertises the PowerMate over mDNS as <CONFIG_LWIP_LOCAL_HOSTNAME>.local with an
+ *        HTTP service. Call once after wifi_init(). Failure is logged and not fatal.
+ */
+esp_err_t discovery_start(void);
+
 typedef enum
 {
     WIFI_STA_CONNECTION_IDLE,

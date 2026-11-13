@@ -65,9 +65,13 @@ add_custom_command(
         VERBATIM
 )
 
+# The page only decodes StatusMessage, so leave out encode, verify, toObject and the
+# other generated helpers (keep these flags in step with build:proto in package.json).
 add_custom_command(
         OUTPUT ${WEB_PROTO_JS}
-        COMMAND ${NPM_BIN}/pbjs -t static-module -w es6 -o ${WEB_PROTO_JS} ${PROTO_FILE}
+        COMMAND ${NPM_BIN}/pbjs -t static-module -w es6
+                --no-create --no-encode --no-verify --no-convert --no-delimited --no-typeurl --no-comments
+                -o ${WEB_PROTO_JS} ${PROTO_FILE}
         WORKING_DIRECTORY ${WEB_APP_SOURCE_DIR}
         DEPENDS ${NPM_INSTALL_STAMP} ${PROTO_FILE}
         COMMENT "Generating proto.js from status.proto"

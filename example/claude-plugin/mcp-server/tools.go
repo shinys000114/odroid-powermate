@@ -381,7 +381,7 @@ func (t *tools) consoleSend(ctx context.Context, _ *mcp.CallToolRequest, in send
 // ---- sbc_console_wait ----
 
 type waitIn struct {
-	Pattern        string `json:"pattern" jsonschema:"regular expression (Go RE2 syntax) matched against cleaned console text"`
+	Pattern        string `json:"pattern" jsonschema:"regular expression (Go RE2 syntax) matched against cleaned console text; ^ and $ match at line starts and ends"`
 	TimeoutSeconds int    `json:"timeout_seconds,omitempty" jsonschema:"default 30, max 900"`
 	Since          *int64 `json:"since,omitempty" jsonschema:"console cursor to search from; default continues after the last console tool"`
 }
@@ -396,7 +396,7 @@ type waitOut struct {
 }
 
 func (t *tools) consoleWait(ctx context.Context, _ *mcp.CallToolRequest, in waitIn) (*mcp.CallToolResult, waitOut, error) {
-	re, err := regexp.Compile(in.Pattern)
+	re, err := regexp.Compile(`(?m)` + in.Pattern)
 	if err != nil {
 		return nil, waitOut{}, fmt.Errorf("pattern: %w", err)
 	}
@@ -633,13 +633,13 @@ func (t *tools) bootCapture(ctx context.Context, _ *mcp.CallToolRequest, in boot
 	if until == "" {
 		until = `login:`
 	}
-	untilRe, err := regexp.Compile(until)
+	untilRe, err := regexp.Compile(`(?m)` + until)
 	if err != nil {
 		return nil, bootOut{}, fmt.Errorf("until: %w", err)
 	}
 	var interruptRe *regexp.Regexp
 	if in.InterruptPattern != "" {
-		if interruptRe, err = regexp.Compile(in.InterruptPattern); err != nil {
+		if interruptRe, err = regexp.Compile(`(?m)` + in.InterruptPattern); err != nil {
 			return nil, bootOut{}, fmt.Errorf("interrupt_pattern: %w", err)
 		}
 	}

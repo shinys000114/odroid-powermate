@@ -62,6 +62,13 @@ export function initUI() {
 }
 
 /**
+ * Closes the settings modal if it is open.
+ */
+export function hideSettingsModal() {
+    bootstrap.Modal.getInstance(dom.settingsModal)?.hide();
+}
+
+/**
  * Applies the selected theme (light or dark) to the entire application.
  * @param {string} themeName - The name of the theme ('light' or 'dark').
  */

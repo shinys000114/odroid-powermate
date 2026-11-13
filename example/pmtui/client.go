@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	maxHTTPResponseBytes = 256 * 1024
-	webSocketPongWait    = 15 * time.Second
-	webSocketPingPeriod  = 5 * time.Second
-	webSocketWriteWait   = 2 * time.Second
+	maxHTTPResponseBytes   = 256 * 1024
+	webSocketPongWait      = 15 * time.Second
+	webSocketPingPeriod    = 5 * time.Second
+	webSocketStableSession = 10 * time.Second
+	webSocketWriteWait     = 2 * time.Second
 )
 
 type client struct {
@@ -406,8 +407,8 @@ func (c *client) runWebSocket(
 
 		connection, response, err := c.dialWebSocket(ctx, path)
 		if err == nil {
-			backoff = time.Second
 			onState(true, nil)
+			connectedAt := time.Now()
 			sessionDone := make(chan struct{})
 			c.startWebSocketHeartbeat(ctx, connection, sessionDone)
 			go func() {
@@ -424,6 +425,12 @@ func (c *client) runWebSocket(
 				return
 			}
 			onState(false, err)
+			// When the firmware runs out of sockets it closes the least recently used
+			// one, often a WebSocket. Redialing at once would just push out another
+			// client, which redials too, so keep backing off unless the session lasted.
+			if time.Since(connectedAt) > webSocketStableSession {
+				backoff = time.Second
+			}
 		} else {
 			if response != nil && response.Body != nil {
 				response.Body.Close()

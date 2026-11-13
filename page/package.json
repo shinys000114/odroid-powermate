@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "protobufjs-cli": "^1.1.2",
+    "purgecss": "^7.0.2",
     "vite": "^7.0.4",
     "vite-plugin-compression": "^0.5.1",
     "vite-plugin-singlefile": "^2.0.1"

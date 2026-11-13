@@ -14,7 +14,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './style.css';
 
 // --- Module Imports -- -
-import {StatusMessage} from './proto.js';
+import {StatusMessage} from '@proto';
 import * as api from './api.js';
 import {closeWebSocket, initWebSocket} from './websocket.js';
 import {setupTerminal, term} from './terminal.js';
@@ -34,7 +34,7 @@ import {
 import {setupEventListeners} from './events.js';
 
 // --- Globals ---
-// StatusMessage is imported directly from the generated proto.js file.
+// StatusMessage comes from proto.js, generated from proto/status.proto (see vite.config.js).
 let isRecording = false;
 let recordedData = [];
 let recordedEvents = [];

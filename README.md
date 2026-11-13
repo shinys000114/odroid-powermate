@@ -103,8 +103,8 @@ sudo apt install nodejs npm nanopb
 | Firmware (`main/`, build files) | [GPL-3.0-only](LICENSE) |
 | Web UI (`page/`) | [GPL-3.0-only](LICENSE) |
 | Protobuf definition (`proto/`) | [Apache-2.0](proto/LICENSE) |
-| Code generated from `proto/status.proto` (`main/proto/status.pb.*`, `page/src/proto.js`) | [Apache-2.0](proto/LICENSE) |
+| Code generated from `proto/status.proto` at build time | [Apache-2.0](proto/LICENSE) |
 | Examples (`example/`) | [Apache-2.0](example/LICENSE) |
 
-Source files carry an `SPDX-License-Identifier` header. The generated protobuf files are
-rewritten on every build, so their license is declared in [REUSE.toml](REUSE.toml) instead.
+Source files carry an `SPDX-License-Identifier` header. Generated files (nanopb sources,
+`proto.js`, the web bundle) are written to the build directory and are not checked in.

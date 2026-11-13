@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated from ../proto/status.proto by npm run build:proto
+src/proto.js

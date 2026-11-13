@@ -22,7 +22,7 @@
     "@xterm/xterm": "^5.5.0",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
-    "chart.js": "^4.4.3",
-    "protobufjs": "^7.5.4"
+    "protobufjs": "^7.5.4",
+    "uplot": "^1.6.32"
   }
 }

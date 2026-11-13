@@ -3,29 +3,13 @@
 
 /**
  * @file chart.js
- * @description This module manages the Chart.js instances for visualizing sensor data.
+ * @description This module manages the uPlot instances for visualizing sensor data.
  * It handles initialization, theme updates, data updates, and resizing for the three separate charts.
  */
 
-import {
-    CategoryScale,
-    Chart,
-    Colors,
-    Legend,
-    LinearScale,
-    LineController,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-} from 'chart.js';
-import {currentChartCtx, graphTabPane, htmlEl, powerChartCtx, voltageChartCtx} from './dom.js';
-
-// Register only what these line charts use, so the rest of Chart.js is left out of
-// the bundle. Colors is kept so the datasets get the same default fill colors as
-// before the theme colors are applied.
-Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale,
-    Legend, Title, Tooltip, Colors);
+import uPlot from 'uplot';
+import 'uplot/dist/uPlot.min.css';
+import {currentChartEl, graphTabPane, htmlEl, powerChartEl, voltageChartEl} from './dom.js';
 
 // Store chart instances in an object
 export const charts = {
@@ -41,87 +25,146 @@ const scaleConfig = {
     current: {steps: [1, 2.5, 5, 10]}     // in Amps
 };
 
+const chartDefs = [
+    {key: 'power', title: 'Power', unit: 'W', el: () => powerChartEl},
+    {key: 'voltage', title: 'Voltage', unit: 'V', el: () => voltageChartEl},
+    {key: 'current', title: 'Current', unit: 'A', el: () => currentChartEl},
+];
+
 const channelKeys = ['USB', 'MAIN', 'VIN'];
 const CHART_DATA_POINTS = 30; // Number of data points to display on the chart
+const FONT = '12px "Helvetica Neue", Helvetica, Arial, sans-serif';
 
-/**
- * Creates an array of empty labels for initial chart rendering.
- * @returns {Array<string>} An array of empty strings.
- */
-function initialLabels() {
-    return Array(CHART_DATA_POINTS).fill('');
-}
+// The last CHART_DATA_POINTS samples, kept even while the graph tab is hidden.
+const labels = Array(CHART_DATA_POINTS).fill('');
+const series = Object.fromEntries(Object.keys(scaleConfig).map(metric =>
+    [metric, channelKeys.map(() => Array(CHART_DATA_POINTS).fill(null))]));
+const xValues = Array.from({length: CHART_DATA_POINTS}, (_, i) => i);
+const yMax = Object.fromEntries(Object.entries(scaleConfig).map(([metric, {steps}]) => [metric, steps[0]]));
 
-/**
- * Creates an array of null data points for initial chart rendering.
- * @returns {Array<null>} An array of nulls.
- */
-function initialData() {
-    return Array(CHART_DATA_POINTS).fill(null);
-}
+let currentTheme = htmlEl.getAttribute('data-bs-theme') || 'light';
 
-/**
- * Creates a common configuration object for a single line chart.
- * @param {string} title - The title of the chart (e.g., 'Power (W)').
- * @returns {Object} A Chart.js options object.
- */
-function createChartOptions(title) {
+function themeColors() {
+    const isDark = currentTheme === 'dark';
+    const css = getComputedStyle(htmlEl);
     return {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {mode: 'index', intersect: false},
-        plugins: {
-            legend: {position: 'top'},
-            title: {display: true, text: title}
-        },
-        scales: {
-            x: {ticks: {autoSkipPadding: 10, maxRotation: 0, minRotation: 0}},
-            y: {
-                min: 0,
-                beginAtZero: true,
-                ticks: {}
-            }
-        }
+        grid: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+        label: isDark ? '#dee2e6' : '#212529',
+        channels: [
+            css.getPropertyValue('--chart-usb-color').trim() || '#0d6efd',
+            css.getPropertyValue('--chart-main-color').trim() || '#198754',
+            css.getPropertyValue('--chart-vin-color').trim() || '#dc3545',
+        ],
     };
 }
 
-/**
- * Creates the dataset objects for a chart.
- * @param {string} unit - The unit for the dataset label (e.g., 'W', 'V', 'A').
- * @returns {Array<Object>} An array of Chart.js dataset objects.
- */
-function createDatasets(unit) {
-    return channelKeys.map(channel => ({
-        label: `${channel} (${unit})`,
-        data: initialData(),
-        borderWidth: 2,
-        fill: false,
-        tension: 0.2,
-        pointRadius: 0
-    }));
+/** The line color at half opacity, for legend and tooltip boxes. */
+function translucent(color) {
+    const hex = color.replace('#', '');
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
+    const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
+    return `rgba(${r}, ${g}, ${b}, 0.5)`;
 }
 
-/**
- * Initializes a single chart with its specific configuration.
- * @param {CanvasRenderingContext2D} context - The canvas context for the chart.
- * @param {string} title - The chart title.
- * @param {string} metric - The metric key ('power', 'voltage', 'current').
- * @param {string} unit - The data unit ('W', 'V', 'A').
- * @returns {Chart} A new Chart.js instance.
- */
-function initializeSingleChart(context, title, metric, unit) {
-    if (!context) return null;
+/** Floating tooltip with the time and every channel's value at the cursor. */
+function tooltipPlugin(colors) {
+    let tip;
+    return {
+        hooks: {
+            init: (u) => {
+                tip = document.createElement('div');
+                tip.className = 'chart-tooltip';
+                tip.style.display = 'none';
+                u.over.appendChild(tip);
+                u.over.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+            },
+            setCursor: (u) => {
+                const idx = u.cursor.idx;
+                if (idx == null || u.data.slice(1).every(s => s[idx] == null)) {
+                    tip.style.display = 'none';
+                    return;
+                }
+                const rows = u.series.slice(1).map((s, i) => {
+                    const v = u.data[i + 1][idx];
+                    return `<div><span class="chart-tooltip-box" style="background:${colors[i]}"></span>${s.label}: ${v == null ? '-' : v.toFixed(2)}</div>`;
+                }).join('');
+                tip.innerHTML = `<div class="chart-tooltip-title">${labels[idx]}</div>${rows}`;
+                tip.style.display = '';
+                const left = u.valToPos(idx, 'x');
+                const flip = left > u.over.clientWidth / 2;
+                tip.style.left = `${flip ? left - tip.offsetWidth - 10 : left + 10}px`;
+                tip.style.top = `${Math.max(0, u.cursor.top - tip.offsetHeight / 2)}px`;
+            },
+        },
+    };
+}
 
-    const options = createChartOptions(title);
-    const initialMax = scaleConfig[metric].steps[0];
-    options.scales.y.max = initialMax;
-    options.scales.y.ticks.stepSize = initialMax / 5; // Initial step size
+/** Width and plot height that fill the chart's container below its title and legend. */
+function sizeFor(el, u) {
+    const chrome = u ? u.root.offsetHeight - u.over.parentElement.offsetHeight : 60;
+    return {width: el.clientWidth, height: Math.max(100, el.clientHeight - chrome)};
+}
 
-    return new Chart(context, {
-        type: 'line',
-        data: {labels: initialLabels(), datasets: createDatasets(unit)},
-        options: options
-    });
+function createChart({key, title, unit, el}) {
+    const container = el();
+    if (!container || !container.clientWidth) return null;
+    const colors = themeColors();
+    const axis = {
+        stroke: colors.label,
+        font: FONT,
+        grid: {stroke: colors.grid, width: 1},
+        ticks: {stroke: colors.grid, width: 1, size: 6},
+    };
+
+    const opts = {
+        title,
+        ...sizeFor(container),
+        pxAlign: false,
+        cursor: {x: false, y: false, drag: {x: false, y: false}, points: {size: 8}},
+        legend: {
+            live: false,
+            markers: {width: 2, fill: (u, i) => translucent(colors.channels[i - 1])},
+        },
+        scales: {
+            x: {time: false, range: [0, CHART_DATA_POINTS - 1]},
+            y: {range: () => [0, yMax[key]]},
+        },
+        axes: [
+            {
+                ...axis,
+                space: 60,
+                incrs: [1, 2, 3, 5, 10, 15, 30],
+                values: (u, splits) => splits.map(i => labels[i] ?? ''),
+            },
+            {
+                ...axis,
+                size: 40,
+                splits: () => Array.from({length: 6}, (_, i) => (yMax[key] / 5) * i),
+                // Same decimals on every tick, as many as the step needs (0, 0.5, 1.0, ...).
+                values: (u, splits) => {
+                    const decimals = (String(yMax[key] / 5).split('.')[1] ?? '').length;
+                    return splits.map(v => v.toFixed(decimals));
+                },
+            },
+        ],
+        series: [
+            {},
+            ...channelKeys.map((channel, i) => ({
+                label: `${channel} (${unit})`,
+                stroke: colors.channels[i],
+                width: 2,
+                paths: uPlot.paths.spline(),
+                points: {show: false},
+                spanGaps: false,
+            })),
+        ],
+        plugins: [tooltipPlugin(colors.channels)],
+    };
+
+    container.replaceChildren();
+    const u = new uPlot(opts, [xValues, ...series[key]], container);
+    u.setSize(sizeFor(container, u));
+    return u;
 }
 
 /**
@@ -129,16 +172,10 @@ function initializeSingleChart(context, title, metric, unit) {
  * If chart instances already exist, they are destroyed and new ones are created.
  */
 export function initCharts() {
-    // Destroy existing charts if they exist
-    Object.keys(charts).forEach(key => {
-        if (charts[key]) {
-            charts[key].destroy();
-        }
-    });
-
-    charts.power = initializeSingleChart(powerChartCtx, 'Power', 'power', 'W');
-    charts.voltage = initializeSingleChart(voltageChartCtx, 'Voltage', 'voltage', 'V');
-    charts.current = initializeSingleChart(currentChartCtx, 'Current', 'current', 'A');
+    for (const def of chartDefs) {
+        charts[def.key]?.destroy();
+        charts[def.key] = createChart(def);
+    }
 }
 
 /**
@@ -146,107 +183,58 @@ export function initCharts() {
  * @param {string} themeName - The name of the theme to apply ('light' or 'dark').
  */
 export function applyChartsTheme(themeName) {
-    const isDark = themeName === 'dark';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-    const labelColor = isDark ? '#dee2e6' : '#212529';
-
-    const channelColors = [
-        getComputedStyle(htmlEl).getPropertyValue('--chart-usb-color').trim() || '#0d6efd',
-        getComputedStyle(htmlEl).getPropertyValue('--chart-main-color').trim() || '#198754',
-        getComputedStyle(htmlEl).getPropertyValue('--chart-vin-color').trim() || '#dc3545'
-    ];
-
-    const updateThemeForChart = (chart) => {
-        if (!chart) return;
-        chart.options.scales.x.grid.color = gridColor;
-        chart.options.scales.y.grid.color = gridColor;
-        chart.options.scales.x.ticks.color = labelColor;
-        chart.options.scales.y.ticks.color = labelColor;
-        chart.options.plugins.legend.labels.color = labelColor;
-        chart.options.plugins.title.color = labelColor;
-
-        chart.data.datasets.forEach((dataset, index) => {
-            dataset.borderColor = channelColors[index];
-        });
-
-        chart.update('none');
-    };
-
-    Object.values(charts).forEach(updateThemeForChart);
+    currentTheme = themeName;
+    // Axis, grid and line colors are baked into the canvas, so rebuild the charts.
+    if (Object.values(charts).some(Boolean)) initCharts();
 }
 
 /**
- * Updates a single chart with new data and dynamically adjusts its Y-axis scale.
- * @param {Chart} chart - The Chart.js instance to update.
- * @param {string} metric - The metric key (e.g., 'power', 'voltage').
- * @param {Object} data - The new sensor data object.
- * @param {string} timeLabel - The timestamp label for the new data point.
+ * Records one sample for a metric and adjusts its step-wise Y-axis maximum.
  */
-function updateSingleChart(chart, metric, data, timeLabel) {
-    if (!chart) return;
-
-    // Shift old data and push new data
-    chart.data.labels.shift();
-    chart.data.labels.push(timeLabel);
-    chart.data.datasets.forEach((dataset, index) => {
-        dataset.data.shift();
-        const channel = channelKeys[index];
-        const value = data[channel]?.[metric];
-        dataset.data.push(value !== undefined ? value.toFixed(2) : null);
+function pushSample(metric, data) {
+    series[metric].forEach((values, index) => {
+        values.shift();
+        const value = data[channelKeys[index]]?.[metric];
+        values.push(value !== undefined ? +value.toFixed(2) : null);
     });
 
-    // --- DYNAMIC STEP-WISE Y-AXIS SCALING ---
-    const config = scaleConfig[metric];
-    if (config?.steps) {
-        const allData = chart.data.datasets
-            .flatMap(dataset => dataset.data)
-            .filter(v => v !== null)
-            .map(v => parseFloat(v));
-
-        const maxDataValue = allData.length > 0 ? Math.max(...allData) : 0;
-
-        // Find the smallest step that is >= maxDataValue
-        let newMax = config.steps.find(step => maxDataValue <= step);
-
-        // If value exceeds all steps, use the largest step. If no data, use the smallest.
-        if (newMax === undefined) {
-            newMax = config.steps[config.steps.length - 1];
-        }
-
-        if (chart.options.scales.y.max !== newMax) {
-            chart.options.scales.y.max = newMax;
-            // Dynamically adjust stepSize for clearer grid lines
-            chart.options.scales.y.ticks.stepSize = newMax / 5;
-        }
-    }
-    // --- END DYNAMIC SCALING ---
-
-    // Update chart only if its tab is visible for performance.
-    if (graphTabPane.classList.contains('show')) {
-        chart.update('none');
-    }
+    const {steps} = scaleConfig[metric];
+    const maxDataValue = Math.max(0, ...series[metric].flat().filter(v => v !== null));
+    // The smallest step that is >= maxDataValue, or the largest step.
+    yMax[metric] = steps.find(step => maxDataValue <= step) ?? steps[steps.length - 1];
 }
-
 
 /**
  * Updates all charts with new sensor data.
  * @param {Object} data - The new sensor data object from the WebSocket.
  */
 export function updateCharts(data) {
-    const timeLabel = new Date(data.timestamp).toLocaleTimeString();
+    labels.shift();
+    labels.push(new Date(data.timestamp).toLocaleTimeString());
+    for (const metric of Object.keys(scaleConfig)) pushSample(metric, data);
 
-    updateSingleChart(charts.power, 'power', data, timeLabel);
-    updateSingleChart(charts.voltage, 'voltage', data, timeLabel);
-    updateSingleChart(charts.current, 'current', data, timeLabel);
+    // Redraw only while the graph tab is visible.
+    if (!graphTabPane.classList.contains('show')) return;
+    for (const def of chartDefs) {
+        charts[def.key]?.setData([xValues, ...series[def.key]]);
+    }
 }
 
 /**
- * Resizes all chart canvases. This is typically called on window resize events.
+ * Resizes all charts to their containers. This is typically called on window resize events
+ * and when the graph tab is shown again.
  */
 export function resizeCharts() {
-    Object.values(charts).forEach(chart => {
-        if (chart) {
-            chart.resize();
+    for (const def of chartDefs) {
+        const u = charts[def.key];
+        const container = def.el();
+        if (!container?.clientWidth) continue;
+        if (!u) {
+            // Not created yet, or rebuilt (theme change) while the tab was hidden.
+            charts[def.key] = createChart(def);
+            continue;
         }
-    });
+        u.setSize(sizeFor(container, u));
+        u.setData([xValues, ...series[def.key]]);
+    }
 }

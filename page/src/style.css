@@ -90,6 +90,66 @@ main {
     height: 30rem !important;
 }
 
+/* uPlot: title, then legend, then the plot, in the fonts and sizes Chart.js used. */
+.chart-canvas .uplot {
+    display: flex;
+    flex-direction: column;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    width: 100%;
+}
+
+.chart-canvas .u-title {
+    order: 0;
+    font-size: 12px;
+    padding: 10px 0;
+    line-height: 1.2;
+}
+
+.chart-canvas .u-legend {
+    order: 1;
+    font-size: 12px;
+    padding-bottom: 6px;
+}
+
+.chart-canvas .u-wrap {
+    order: 2;
+}
+
+.chart-canvas .u-legend .u-marker {
+    width: 40px;
+    height: 12px;
+}
+
+.chart-canvas .u-series > * {
+    padding: 2px;
+}
+
+.chart-tooltip {
+    position: absolute;
+    z-index: 10;
+    pointer-events: none;
+    white-space: nowrap;
+    padding: 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    font: 12px "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.chart-tooltip-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.chart-tooltip-box {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    vertical-align: -2px;
+    border: 1px solid #fff;
+}
+
 .control-wrapper {
     min-height: 38px; /* Match button height for alignment */
     display: flex;

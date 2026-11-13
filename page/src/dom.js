@@ -29,9 +29,9 @@ export const downloadButton = document.getElementById('download-button');
 
 // --- Chart & Graph Elements ---
 export const graphTabPane = document.getElementById('graph-tab-pane');
-export const powerChartCtx = document.getElementById('powerChart')?.getContext('2d');
-export const voltageChartCtx = document.getElementById('voltageChart')?.getContext('2d');
-export const currentChartCtx = document.getElementById('currentChart')?.getContext('2d');
+export const powerChartEl = document.getElementById('powerChart');
+export const voltageChartEl = document.getElementById('voltageChart');
+export const currentChartEl = document.getElementById('currentChart');
 
 // --- Event Table Elements ---
 export const eventTableBody = document.getElementById('event-table-body');

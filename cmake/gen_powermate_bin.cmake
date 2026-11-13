@@ -17,7 +17,7 @@ if (NOT TARGET powermate_gen_single_bin)
             COMMAND ${esptool_py_cmd} merge-bin -o "${powermate_single_bin}" "@${powermate_flash_args}"
             COMMAND ${CMAKE_COMMAND} -E echo "Merge bin done"
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            DEPENDS gen_project_binary bootloader
+            DEPENDS gen_project_binary bootloader partition_table_bin
             BYPRODUCTS "${powermate_single_bin}"
             VERBATIM USES_TERMINAL
     )

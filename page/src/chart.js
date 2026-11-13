@@ -7,11 +7,25 @@
  * It handles initialization, theme updates, data updates, and resizing for the three separate charts.
  */
 
-import {Chart, registerables} from 'chart.js';
+import {
+    CategoryScale,
+    Chart,
+    Colors,
+    Legend,
+    LinearScale,
+    LineController,
+    LineElement,
+    PointElement,
+    Title,
+    Tooltip,
+} from 'chart.js';
 import {currentChartCtx, graphTabPane, htmlEl, powerChartCtx, voltageChartCtx} from './dom.js';
 
-// Register all necessary Chart.js components
-Chart.register(...registerables);
+// Register only what these line charts use, so the rest of Chart.js is left out of
+// the bundle. Colors is kept so the datasets get the same default fill colors as
+// before the theme colors are applied.
+Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale,
+    Legend, Title, Tooltip, Colors);
 
 // Store chart instances in an object
 export const charts = {

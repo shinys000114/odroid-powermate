@@ -8,7 +8,10 @@
  * handling everything from theme changes to dynamic content updates.
  */
 
-import * as bootstrap from 'bootstrap';
+// Only the Bootstrap plugins the page uses. Importing a plugin also wires up its
+// data-bs-* attributes (data-bs-toggle="tab", data-bs-toggle/dismiss="modal").
+import Modal from 'bootstrap/js/src/modal.js';
+import 'bootstrap/js/src/tab.js';
 import * as dom from './dom.js';
 import * as api from './api.js';
 import {escapeHtml, formatUptime, isMobile} from './utils.js';
@@ -58,14 +61,14 @@ async function waitForWifiConnection() {
  * Initializes the UI components, such as the Bootstrap modal.
  */
 export function initUI() {
-    wifiModal = new bootstrap.Modal(dom.wifiModalEl);
+    wifiModal = new Modal(dom.wifiModalEl);
 }
 
 /**
  * Closes the settings modal if it is open.
  */
 export function hideSettingsModal() {
-    bootstrap.Modal.getInstance(dom.settingsModal)?.hide();
+    Modal.getInstance(dom.settingsModal)?.hide();
 }
 
 /**

@@ -8,6 +8,7 @@
 //
 
 #include "auth.h"
+#include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
@@ -413,6 +414,7 @@ void register_ws_endpoint(httpd_handle_t server)
         ESP_ERROR_CHECK(uart_param_config(UART_NUM, &uart_config));
     }
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    gpio_set_pull_mode(UART_RX_PIN, GPIO_PULLUP_ONLY);
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM, UART_RX_BUFFER_SIZE, UART_TX_BUFFER_SIZE, 20, &uart_event_queue, 0));
 
     httpd_uri_t ws = {

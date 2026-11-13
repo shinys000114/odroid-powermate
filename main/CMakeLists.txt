@@ -49,6 +49,7 @@ add_custom_target(protobuf_generate ALL DEPENDS ${PROTO_C_FILE} ${PROTO_H_FILE})
 # src/proto.js is left out: it only exists when the page is built with npm alone.
 file(GLOB_RECURSE WEB_APP_SOURCES CONFIGURE_DEPENDS ${WEB_APP_SOURCE_DIR}/src/*)
 list(REMOVE_ITEM WEB_APP_SOURCES ${WEB_APP_SOURCE_DIR}/src/proto.js)
+file(GLOB WEB_APP_PLUGINS CONFIGURE_DEPENDS ${WEB_APP_SOURCE_DIR}/plugins/*.js)
 set(NPM_INSTALL_STAMP ${WEB_APP_SOURCE_DIR}/node_modules/.package-lock.json)
 set(NPM_BIN ${WEB_APP_SOURCE_DIR}/node_modules/.bin)
 
@@ -83,6 +84,7 @@ add_custom_command(
         ${NPM_INSTALL_STAMP}
         ${WEB_PROTO_JS}
         ${WEB_APP_SOURCE_DIR}/vite.config.js
+        ${WEB_APP_PLUGINS}
         ${WEB_APP_SOURCE_DIR}/index.html
         ${WEB_APP_SOURCES}
         COMMENT "Building web UI (vite build)"

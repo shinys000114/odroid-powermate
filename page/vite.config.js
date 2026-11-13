@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import viteCompression from 'vite-plugin-compression';
+import bootstrapIconsSubset from './plugins/bootstrap-icons-subset.js';
 
 const local = (path) => fileURLToPath(new URL(path, import.meta.url));
 
@@ -14,6 +15,7 @@ const protoJs = process.env.POWERMATE_PROTO_JS;
 
 export default defineConfig({
   plugins: [
+    bootstrapIconsSubset(),
     viteSingleFile(),
     viteCompression(),
   ],

@@ -442,9 +442,12 @@ void register_ws_endpoint(httpd_handle_t server)
         .queue = status_ws_queue, .server = server, .uart_stream = false, .name = "ws-status"};
     uart_sender = (struct ws_sender_config){
         .queue = uart_ws_queue, .server = server, .uart_stream = true, .name = "ws-uart"};
-    xTaskCreate(uart_polling_task, "uart_polling_task", 1024 * 4, server, 8, NULL);
-    xTaskCreate(ws_sender_task, "ws_status_sender", 1024 * 6, &status_sender, 9, NULL);
-    xTaskCreate(ws_sender_task, "ws_uart_sender", 1024 * 6, &uart_sender, 9, NULL);
+    // Stack sizes leave 1.3-2.3 KB above the deepest use measured while page loads, both
+    // streams and an SBC boot log were running and send failures were logged
+    // (sender ~1.7 KB, polling ~0.7 KB).
+    xTaskCreate(uart_polling_task, "uart_polling_task", 1024 * 3, server, 8, NULL);
+    xTaskCreate(ws_sender_task, "ws_status_sender", 1024 * 3, &status_sender, 9, NULL);
+    xTaskCreate(ws_sender_task, "ws_uart_sender", 1024 * 3, &uart_sender, 9, NULL);
     xTaskCreate(uart_event_task, "uart_event_task", 1024 * 2, NULL, 10, NULL);
 }
 

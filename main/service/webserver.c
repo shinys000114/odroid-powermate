@@ -186,7 +186,9 @@ void start_webserver(void)
 
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.stack_size = 1024 * 8;
+    // Measured peak is ~3 KB (settings read, Wi-Fi scan, WebSocket input); settings
+    // writes with NVS were not measured, so keep a wide margin.
+    config.stack_size = 1024 * 7;
     config.max_uri_handlers = 12;
     config.task_priority = 12;
     config.max_open_sockets = POWERMATE_HTTP_MAX_OPEN_SOCKETS;

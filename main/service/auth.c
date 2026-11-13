@@ -20,10 +20,13 @@ typedef struct
 {
     char token[TOKEN_LENGTH];
     bool active;
-    time_t creation_time;
+    uint32_t seq;
 } auth_token_t;
 
 static auth_token_t s_tokens[MAX_TOKENS];
+// Issue order for evicting the oldest token. The wall clock can't be used: SNTP may
+// step it backwards, and several logins can land in the same second.
+static uint32_t s_token_seq;
 static SemaphoreHandle_t s_token_mutex;
 
 void auth_init(void)
@@ -63,15 +66,11 @@ char* auth_generate_token(void)
     if (free_slot == -1)
     {
         ESP_LOGW(TAG, "No free token slots available. Invalidating oldest token.");
-        time_t oldest_time = time(NULL);
         int oldest_idx = -1;
         for (int i = 0; i < MAX_TOKENS; i++)
         {
-            if (s_tokens[i].active && s_tokens[i].creation_time < oldest_time)
-            {
-                oldest_time = s_tokens[i].creation_time;
+            if (s_tokens[i].active && (oldest_idx == -1 || s_tokens[i].seq < s_tokens[oldest_idx].seq))
                 oldest_idx = i;
-            }
         }
         if (oldest_idx != -1)
         {
@@ -104,7 +103,7 @@ char* auth_generate_token(void)
 
     strncpy(s_tokens[free_slot].token, new_token, TOKEN_LENGTH);
     s_tokens[free_slot].active = true;
-    s_tokens[free_slot].creation_time = time(NULL);
+    s_tokens[free_slot].seq = ++s_token_seq;
 
     ESP_LOGI(TAG, "Generated new token at slot %d: %.4s****", free_slot, new_token);
 

@@ -32,6 +32,7 @@ const (
 	webSocketPongWait    = 15 * time.Second
 	webSocketPingPeriod  = 5 * time.Second
 	webSocketWriteWait   = 2 * time.Second
+	stableSession        = 10 * time.Second
 
 	// The firmware receives WebSocket frames into a 2048-byte buffer and closes the
 	// session on anything larger (main/service/ws.c BUF_SIZE).
@@ -112,6 +113,12 @@ func NewClient(host, username, password string, tokens TokenStore) (*Client, err
 // Host returns the device address as configured.
 func (c *Client) Host() string {
 	return c.baseURL.Host
+}
+
+// CloseIdleConnections drops idle keep-alive connections, which still hold one of
+// the firmware's few sockets.
+func (c *Client) CloseIdleConnections() {
+	c.httpClient.CloseIdleConnections()
 }
 
 // refreshToken logs in unless another caller already replaced the stale token.
@@ -415,8 +422,8 @@ func (c *Client) runWebSocket(
 		token := c.getToken()
 		connection, response, err := c.dialWebSocket(ctx, path, token)
 		if err == nil {
-			backoff = time.Second
 			onState(true, nil)
+			connectedAt := time.Now()
 			sessionDone := make(chan struct{})
 			c.startWebSocketHeartbeat(ctx, connection, sessionDone)
 			go func() {
@@ -433,6 +440,12 @@ func (c *Client) runWebSocket(
 				return
 			}
 			onState(false, err)
+			// When the firmware runs out of sockets it closes the least recently used
+			// one, often a WebSocket. Redialing at once would just push out another
+			// client, which redials too, so keep backing off unless the session lasted.
+			if time.Since(connectedAt) > stableSession {
+				backoff = time.Second
+			}
 		} else {
 			if response != nil && response.Body != nil {
 				response.Body.Close()

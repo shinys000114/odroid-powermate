@@ -32,17 +32,26 @@ type sample struct {
 type event struct {
 	At       time.Time `json:"host_time"`
 	Level    string    `json:"level"`
-	UptimeMS uint64    `json:"device_uptime_ms"`
+	UptimeMS uint64    `json:"device_uptime_ms,omitempty"`
 	Message  string    `json:"message"`
 }
 
-// device keeps the PowerMate streams open for the life of the MCP server, so console
-// output and power samples are captured between tool calls.
+// device keeps the PowerMate streams open while tools are in use, so console output
+// and power samples are captured between the tool calls of a task. After idle without
+// a tool call it closes them: the firmware has only seven sockets for every client
+// (web UI, pmtui, other Claude sessions), and each open session here holds two.
 type device struct {
 	client  *powermate.Client
 	console *console.Buffer
+	ctx     context.Context // lifetime of this device
+	idle    time.Duration
 
 	mu           sync.Mutex
+	streamCancel context.CancelFunc // nil while the streams are closed
+	streamGen    int                // ignores callbacks from streams already closed
+	inUse        int                // tool calls running
+	lastUse      time.Time
+	pausedAt     time.Time
 	samples      []sample
 	events       []event
 	switches     powermate.SwitchStatus
@@ -55,14 +64,90 @@ type device struct {
 	readCursor   int64 // where sbc_console_read/wait continue by default
 }
 
-func newDevice(client *powermate.Client) *device {
-	return &device{client: client, console: console.NewBuffer(consoleBufferBytes)}
+func newDevice(ctx context.Context, client *powermate.Client, idle time.Duration) *device {
+	d := &device{client: client, console: console.NewBuffer(consoleBufferBytes), ctx: ctx, idle: idle}
+	go d.closeWhenIdle()
+	return d
 }
 
-func (d *device) run(ctx context.Context) {
+// acquire opens the streams if they are closed and keeps them open until the matching
+// release. A fresh start waits briefly for the streams, so the first tool call already
+// sees the console and a power sample.
+func (d *device) acquire(ctx context.Context) {
+	d.mu.Lock()
+	d.inUse++
+	d.lastUse = time.Now()
+	started := d.streamCancel == nil
+	if started {
+		if !d.pausedAt.IsZero() {
+			d.addEventLocked("info", fmt.Sprintf("PowerMate streams reopened after an idle pause: console output "+
+				"and power samples from %s to now were not captured", d.pausedAt.Format(time.TimeOnly)))
+		}
+		streamCtx, cancel := context.WithCancel(d.ctx)
+		d.streamCancel = cancel
+		d.streamGen++
+		d.run(streamCtx, d.streamGen)
+	}
+	d.mu.Unlock()
+	if !started {
+		return
+	}
+	since := time.Now()
+	deadline := since.Add(3 * time.Second)
+	for time.Now().Before(deadline) && ctx.Err() == nil {
+		d.mu.Lock()
+		ready := d.uartUp && d.statusUp && len(d.samples) > 0 && d.samples[len(d.samples)-1].At.After(since)
+		d.mu.Unlock()
+		if ready {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func (d *device) release() {
+	d.mu.Lock()
+	d.inUse--
+	d.lastUse = time.Now()
+	d.mu.Unlock()
+}
+
+func (d *device) closeWhenIdle() {
+	if d.idle <= 0 {
+		return
+	}
+	ticker := time.NewTicker(min(d.idle/4, 15*time.Second))
+	defer ticker.Stop()
+	for {
+		select {
+		case <-d.ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		d.mu.Lock()
+		if d.streamCancel == nil || d.inUse > 0 || time.Since(d.lastUse) < d.idle {
+			d.mu.Unlock()
+			continue
+		}
+		d.streamCancel()
+		d.streamCancel = nil
+		d.pausedAt = time.Now()
+		reason := fmt.Sprintf("paused: no tool call for %s; the next tool call reopens it", d.idle)
+		d.uartUp, d.statusUp, d.uartErr, d.statusErr = false, false, reason, reason
+		d.mu.Unlock()
+		d.client.CloseIdleConnections()
+		log.Printf("streams closed after %s idle", d.idle)
+	}
+}
+
+// run starts both streams; d.mu must be held.
+func (d *device) run(ctx context.Context, gen int) {
 	go d.client.RunUART(ctx, d.console.Write, func(up bool, err error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
+		if gen != d.streamGen || ctx.Err() != nil {
+			return
+		}
 		if up && !d.uartUp {
 			d.uartUpSince = time.Now()
 		}
@@ -75,6 +160,9 @@ func (d *device) run(ctx context.Context) {
 	go d.client.RunStatus(ctx, d.onStatus, func(up bool, err error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
+		if gen != d.streamGen || ctx.Err() != nil {
+			return
+		}
 		d.statusUp = up
 		d.statusErr = errString(err)
 		if err != nil {
@@ -103,9 +191,19 @@ func (d *device) onStatus(message powermate.StatusMessage) {
 			UptimeMS: message.Event.UptimeMS,
 			Message:  message.Event.Message,
 		})
-		if over := len(d.events) - maxEvents; over > 0 {
-			d.events = append(d.events[:0], d.events[over:]...)
-		}
+		d.trimEventsLocked()
+	}
+}
+
+// addEventLocked records an event of this server's own; d.mu must be held.
+func (d *device) addEventLocked(level, message string) {
+	d.events = append(d.events, event{At: time.Now(), Level: level, Message: message})
+	d.trimEventsLocked()
+}
+
+func (d *device) trimEventsLocked() {
+	if over := len(d.events) - maxEvents; over > 0 {
+		d.events = append(d.events[:0], d.events[over:]...)
 	}
 }
 
@@ -312,6 +410,8 @@ type manager struct {
 	root     context.Context
 	stateDir string
 
+	idle time.Duration // close the streams after this long without a tool call
+
 	mu       sync.Mutex
 	dev      *device
 	cancel   context.CancelFunc
@@ -394,8 +494,7 @@ func (m *manager) saveHost(host string, save bool) {
 
 func (m *manager) swap(client *powermate.Client, host, source string) {
 	ctx, cancel := context.WithCancel(m.root)
-	dev := newDevice(client)
-	dev.run(ctx)
+	dev := newDevice(ctx, client, m.idle)
 
 	m.mu.Lock()
 	old := m.cancel

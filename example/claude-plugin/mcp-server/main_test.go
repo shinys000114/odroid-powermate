@@ -7,18 +7,20 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/hardkernel/odroid-powermate/example/claude-plugin/mcp-server/internal/powermate"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestRequireHostWithoutAddress(t *testing.T) {
+func TestUseDeviceWithoutAddress(t *testing.T) {
 	m := &manager{root: context.Background(), stateDir: t.TempDir()}
 	reached := ""
 	next := func(_ context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		reached = req.(*mcp.CallToolRequest).Params.Name
 		return &mcp.CallToolResult{}, nil
 	}
-	h := requireHost(m)(next)
+	h := useDevice(m)(next)
 	call := func(name string) *mcp.CallToolResult {
 		res, err := h(context.Background(), "tools/call", &mcp.CallToolRequest{Params: &mcp.CallToolParamsRaw{Name: name}})
 		if err != nil {
@@ -37,5 +39,44 @@ func TestRequireHostWithoutAddress(t *testing.T) {
 	}
 	if _, err := m.connect(context.Background(), "", true); err == nil {
 		t.Fatal("empty host accepted")
+	}
+}
+
+func TestDeviceClosesStreamsWhenIdle(t *testing.T) {
+	client, err := powermate.NewClient("127.0.0.1:1", "admin", "password", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	d := newDevice(ctx, client, 200*time.Millisecond)
+	open := func() bool {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		return d.streamCancel != nil
+	}
+
+	if open() {
+		t.Fatal("streams opened before any tool call")
+	}
+	short, stop := context.WithTimeout(ctx, 10*time.Millisecond)
+	d.acquire(short)
+	stop()
+	time.Sleep(400 * time.Millisecond)
+	if !open() {
+		t.Fatal("streams closed while a tool call was running")
+	}
+	d.release()
+	time.Sleep(400 * time.Millisecond)
+	if open() {
+		t.Fatal("streams still open after the idle timeout")
+	}
+
+	short, stop = context.WithTimeout(ctx, 10*time.Millisecond)
+	d.acquire(short)
+	stop()
+	d.release()
+	if !open() || len(d.eventsSince(time.Time{})) != 1 {
+		t.Fatalf("reopen: open=%v events=%v", open(), d.eventsSince(time.Time{}))
 	}
 }

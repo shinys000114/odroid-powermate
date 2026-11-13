@@ -54,6 +54,11 @@ matters, for example take `console_cursor_before` from `sbc_power`, then
 `sbc_console_wait(since=...)`. That way output that arrived in between is not missed.
 Without `since`, read/wait continue from where the last console tool stopped.
 
+The console is captured only while this session uses the tools: after 10 minutes
+without a tool call the streams close, and output from that time is lost. For a long
+unattended run, keep `sbc_console_wait` or `sbc_power_record` going instead of
+pausing between calls.
+
 ## Wiring problems: check before blaming the target
 
 PowerMate hardware gives garbage, not silence, when wiring is bad:

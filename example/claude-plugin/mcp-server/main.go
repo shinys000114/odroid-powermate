@@ -13,6 +13,8 @@
 //	POWERMATE_USERNAME  web login (default "admin")
 //	POWERMATE_PASSWORD  web login (default "password")
 //	POWERMATE_STATE_DIR token cache and capture logs (default: user cache dir)
+//	POWERMATE_IDLE_MINUTES close the PowerMate streams after this long without a
+//	                    tool call (default 10; 0 keeps them open)
 package main
 
 import (
@@ -24,8 +26,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -92,6 +96,14 @@ func main() {
 		stateDir: stateDir,
 		username: getenv("POWERMATE_USERNAME", "admin"),
 		password: getenv("POWERMATE_PASSWORD", "password"),
+		idle:     10 * time.Minute,
+	}
+	if v := getenv("POWERMATE_IDLE_MINUTES", ""); v != "" {
+		minutes, err := strconv.ParseFloat(v, 64)
+		if err != nil || minutes < 0 {
+			log.Fatalf("POWERMATE_IDLE_MINUTES=%q: want a number of minutes, 0 to never close", v)
+		}
+		m.idle = time.Duration(minutes * float64(time.Minute))
 	}
 	// An explicit POWERMATE_HOST wins; otherwise use the address saved by
 	// powermate_connect. There is no default: a guessed address would point the
@@ -113,7 +125,7 @@ func main() {
 			"continuously; use cursors from one tool as 'since' in the next to avoid missing output. " +
 			"If no PowerMate address is configured, ask the user for it and call powermate_connect; never guess one.",
 	})
-	server.AddReceivingMiddleware(requireHost(m))
+	server.AddReceivingMiddleware(useDevice(m))
 	t := &tools{m: m, logDir: filepath.Join(stateDir, "logs")}
 	registerTools(server, t)
 	registerAdminTools(server, t)
@@ -128,14 +140,24 @@ const noHostMsg = "No PowerMate address is configured. Ask the user for the Powe
 	"powermate_connect(host=...); do not guess one. A factory-fresh PowerMate is not on any network yet: the user " +
 	"first joins it to Wi-Fi from a phone through its setup AP (powermate / 192.168.4.1)."
 
-// requireHost answers every tool call except powermate_connect with noHostMsg until
-// an address is known.
-func requireHost(m *manager) mcp.Middleware {
+// useDevice answers every tool call except powermate_connect with noHostMsg until an
+// address is known, and keeps the PowerMate streams open while a tool call runs.
+func useDevice(m *manager) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
-			if call, ok := req.(*mcp.CallToolRequest); ok && call.Params.Name != "powermate_connect" && m.current() == nil {
-				return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: noHostMsg}}}, nil
+			call, ok := req.(*mcp.CallToolRequest)
+			if !ok {
+				return next(ctx, method, req)
 			}
+			dev := m.current()
+			if dev == nil {
+				if call.Params.Name != "powermate_connect" {
+					return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: noHostMsg}}}, nil
+				}
+				return next(ctx, method, req)
+			}
+			dev.acquire(ctx)
+			defer dev.release()
 			return next(ctx, method, req)
 		}
 	}

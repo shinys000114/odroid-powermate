@@ -45,6 +45,7 @@ from the shell that starts Claude Code:
 | `POWERMATE_HOST` | saved address | PowerMate address. When unset, the server uses the address saved by `powermate_connect`. With neither, the tools ask the agent to get the address from the user. |
 | `POWERMATE_USERNAME` | `admin` | PowerMate web login |
 | `POWERMATE_PASSWORD` | `password` | PowerMate web login |
+| `POWERMATE_IDLE_MINUTES` | `10` | Close the PowerMate streams after this many minutes without a tool call. `0` keeps them open. |
 
 ```sh
 export POWERMATE_HOST=192.168.30.4
@@ -55,6 +56,13 @@ plugin data directory (`${CLAUDE_PLUGIN_DATA}`), or in `~/.cache/powermate-mcp`
 when that variable is not provided. The token is reused across sessions, because the
 firmware keeps only four tokens and evicts the oldest. Without this, every new
 session would log the web UI out.
+
+The server opens its two WebSockets (status and UART) on the first tool call, not at
+startup, and closes them after `POWERMATE_IDLE_MINUTES` without one. The PowerMate
+has only seven sockets for all clients together (web UI, pmtui, every Claude Code
+session with this plugin), and when it runs out it drops the least recently used
+connection. Console output and power samples are not captured while the streams are
+closed; `sbc_events` records the gap.
 
 ## Install
 

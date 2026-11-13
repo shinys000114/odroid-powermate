@@ -9,6 +9,7 @@
 #include "auth.h"
 #include "cJSON.h"
 #include "dbg_console.h"
+#include "esp_app_desc.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
@@ -22,34 +23,44 @@
 
 static const char* TAG = "WEBSERVER";
 
+// The page is embedded in the firmware, so the firmware's ELF hash identifies it.
+static const char* index_etag(void)
+{
+    static char etag[2 + 16 + 1];
+    if (etag[0] == '\0')
+    {
+        char sha[16 + 1];
+        esp_app_get_elf_sha256(sha, sizeof(sha));
+        snprintf(etag, sizeof(etag), "\"%s\"", sha);
+    }
+    return etag;
+}
+
 static esp_err_t index_handler(httpd_req_t* req)
 {
     extern const unsigned char index_html_start[] asm("_binary_index_html_gz_start");
     extern const unsigned char index_html_end[] asm("_binary_index_html_gz_end");
     const size_t index_html_size = (index_html_end - index_html_start);
+    const char* etag = index_etag();
 
-    httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    // no-cache lets the browser keep the page but makes it ask first; while the
+    // firmware is unchanged the answer is a bodiless 304 instead of the whole page.
     httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
-    httpd_resp_set_type(req, "text/html");
+    httpd_resp_set_hdr(req, "ETag", etag);
 
-    size_t remaining = index_html_size;
-    const char* ptr = (const char*)index_html_start;
-    while (remaining > 0)
+    char if_none_match[64];
+    if (httpd_req_get_hdr_value_str(req, "If-None-Match", if_none_match, sizeof(if_none_match)) == ESP_OK &&
+        strstr(if_none_match, etag) != NULL)
     {
-        size_t to_send = remaining < 2048 ? remaining : 2048;
-        if (httpd_resp_send_chunk(req, ptr, to_send) != ESP_OK)
-        {
-            ESP_LOGE(TAG, "File sending failed!");
-            httpd_resp_send_chunk(req, NULL, 0);
-            httpd_resp_send_500(req);
-            return ESP_FAIL;
-        }
-        ptr += to_send;
-        remaining -= to_send;
+        httpd_resp_set_status(req, "304 Not Modified");
+        return httpd_resp_send(req, NULL, 0);
     }
 
-    httpd_resp_send_chunk(req, NULL, 0);
-    return ESP_OK;
+    httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    httpd_resp_set_type(req, "text/html");
+    // One send with a Content-Length: lwIP streams it straight from flash in full
+    // segments, instead of a chunk header, 2 KB and a trailer per round.
+    return httpd_resp_send(req, (const char*)index_html_start, index_html_size);
 }
 
 static esp_err_t login_handler(httpd_req_t* req)
